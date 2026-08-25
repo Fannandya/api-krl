@@ -1,0 +1,210 @@
+<%- include('partials/head', { title: 'Dashboard' }) %>
+<%- include('partials/header') %>
+
+<main class="page stack">
+
+  <div>
+    <p class="eyebrow">Halo, <%= user.fullName %></p>
+    <h1>API key kamu</h1>
+  </div>
+
+  <!-- API key yang baru dibuat hanya muncul sekali, di sini. -->
+  <div class="notice notice--good" id="new-key" hidden></div>
+  <div class="notice notice--error" id="pesan" hidden></div>
+
+  <section class="panel">
+    <div class="panel__head">
+      <h2>Buat API key baru</h2>
+      <span class="small muted">Maksimal 10 API key aktif per akun</span>
+    </div>
+    <form id="key-form" style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap">
+      <label class="field" style="flex:1 1 220px">
+        <span class="field__label">Nama key</span>
+        <input class="input" name="name" placeholder="Aplikasi Mobile" required minlength="2">
+      </label>
+      <label class="field" style="flex:0 1 180px">
+        <span class="field__label">Paket</span>
+        <select class="select" name="plan">
+          <% plans.forEach((p) => { %>
+            <option value="<%= p.code %>"><%= p.name %> — <%= p.daily_quota.toLocaleString('id-ID') %>/hari</option>
+          <% }) %>
+        </select>
+      </label>
+      <button class="btn btn--primary" type="submit">Buat API key</button>
+    </form>
+  </section>
+
+  <section class="stack">
+    <% if (keys.length === 0) { %>
+      <div class="empty">
+        <p>Belum ada API key.</p>
+        <p class="small" style="margin-top:6px">Buat satu di atas untuk mulai memanggil endpoint <code class="inline">/v1</code>.</p>
+      </div>
+    <% } %>
+
+    <% keys.forEach((k) => {
+         const pakai = k.usage.used_today;
+         const kuota = k.plan.daily_quota;
+         const persen = Math.min(100, Math.round((pakai / kuota) * 1000) / 10);
+         const habis = pakai >= kuota;
+    %>
+      <article class="keycard <%= k.status === 'revoked' ? 'keycard--revoked' : '' %>">
+        <div class="keycard__top">
+          <div>
+            <div class="keycard__name"><%= k.name %></div>
+            <div class="keycard__value"><%= k.masked %></div>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+            <span class="chip"><%= k.plan.name %></span>
+            <span class="chip <%= k.status === 'revoked' ? 'chip--revoked' : 'chip--active' %>">
+              <%= k.status === 'revoked' ? 'DICABUT' : 'AKTIF' %>
+            </span>
+            <% if (k.status !== 'revoked') { %>
+              <button class="btn btn--quiet" data-cabut="<%= k.id %>" data-nama="<%= k.name %>">Cabut</button>
+            <% } %>
+          </div>
+        </div>
+
+        <% if (k.status !== 'revoked') { %>
+          <!-- Meteran kuota: rel dengan penanda kereta yang bergerak sejauh pemakaian. -->
+          <div class="meter <%= habis ? 'meter--full' : '' %>">
+            <div class="meter__label">
+              <span>Pemakaian hari ini</span>
+              <span><%= pakai.toLocaleString('id-ID') %> / <%= kuota.toLocaleString('id-ID') %> · sisa <%= k.usage.remaining_today.toLocaleString('id-ID') %></span>
+            </div>
+            <div class="meter__rail" style="--pct: <%= persen %>%">
+              <span class="meter__tick" style="left:25%"></span>
+              <span class="meter__tick" style="left:50%"></span>
+              <span class="meter__tick" style="left:75%"></span>
+              <span class="meter__fill"></span>
+              <span class="meter__train"></span>
+            </div>
+          </div>
+        <% } %>
+
+        <div class="keycard__meta">
+          <span>Dibuat <b><%= new Date(k.created_at).toLocaleDateString('id-ID') %></b></span>
+          <span>Terakhir dipakai <b><%= k.last_used_at ? new Date(k.last_used_at).toLocaleString('id-ID') : 'belum pernah' %></b></span>
+          <span>Total permintaan <b><%= k.usage.used_total.toLocaleString('id-ID') %></b></span>
+        </div>
+      </article>
+    <% }) %>
+  </section>
+
+  <section class="panel">
+    <div class="panel__head">
+      <h2>Pemakaian 7 hari terakhir</h2>
+      <span class="small muted">
+        <%= usage.reduce((t, d) => t + d.requests, 0).toLocaleString('id-ID') %> permintaan
+      </span>
+    </div>
+
+    <% const puncak = Math.max(1, ...usage.map((d) => d.requests)); %>
+    <div class="bars">
+      <% usage.forEach((d) => { %>
+        <div class="bars__col">
+          <span class="bars__value"><%= d.requests %></span>
+          <span class="bars__bar <%= d.requests === 0 ? 'bars__bar--empty' : '' %>"
+                style="height: <%= Math.max(3, Math.round((d.requests / puncak) * 100)) %>%"></span>
+          <span class="bars__day"><%= d.date.slice(8) %>/<%= d.date.slice(5, 7) %></span>
+        </div>
+      <% }) %>
+    </div>
+
+    <% if (topEndpoints.length > 0) { %>
+      <div style="margin-top:26px">
+        <p class="eyebrow">Endpoint paling sering dipanggil</p>
+        <div class="grid" style="gap:8px">
+          <% topEndpoints.forEach((e) => { %>
+            <div style="display:flex; gap:12px; align-items:baseline; font-size:13px">
+              <code class="inline"><%= e.endpoint %></code>
+              <span class="small muted" style="margin-left:auto; font-family:var(--font-mono)">
+                <%= e.requests %>x · <%= e.avg_latency_ms %> ms
+              </span>
+            </div>
+          <% }) %>
+        </div>
+      </div>
+    <% } %>
+  </section>
+
+</main>
+
+<script>
+  const pesan = document.getElementById('pesan');
+  const newKey = document.getElementById('new-key');
+
+  function tampilkanError(teks) {
+    pesan.textContent = teks;
+    pesan.hidden = false;
+  }
+
+  document.getElementById('key-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const tombol = form.querySelector('button');
+    tombol.disabled = true;
+    pesan.hidden = true;
+
+    const res = await fetch('/keys', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.fromEntries(new FormData(form))),
+    });
+    const hasil = await res.json();
+    tombol.disabled = false;
+
+    if (!res.ok) {
+      tampilkanError(hasil.error?.message || 'API key gagal dibuat.');
+      return;
+    }
+
+    // Nilai key tidak akan pernah ditampilkan lagi, jadi halaman sengaja
+    // tidak dimuat ulang sampai pengguna sempat menyalinnya.
+    newKey.innerHTML =
+      '<strong>API key berhasil dibuat. Salin sekarang — nilainya tidak akan ditampilkan lagi.</strong>'
+      + '<div class="keycard__value" style="margin-top:10px">' + hasil.data.key + '</div>'
+      + '<div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap">'
+      + '<button class="btn btn--quiet" id="salin">Salin key</button>'
+      + '<button class="btn btn--quiet" id="selesai">Sudah disalin, muat ulang</button>'
+      + '</div>';
+    newKey.hidden = false;
+    form.reset();
+    newKey.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    document.getElementById('salin').addEventListener('click', async (e) => {
+      await navigator.clipboard.writeText(hasil.data.key);
+      e.currentTarget.textContent = 'Tersalin';
+    });
+    document.getElementById('selesai').addEventListener('click', () => window.location.reload());
+  });
+
+  // Mencabut API key tidak bisa dibatalkan, jadi tombolnya minta klik kedua
+  // sebagai penegasan. Dipakai cara ini, bukan confirm(), supaya alurnya tetap
+  // di dalam halaman.
+  document.querySelectorAll('[data-cabut]').forEach((tombol) => {
+    const semula = tombol.textContent;
+    let siap = false;
+
+    tombol.addEventListener('click', async () => {
+      if (!siap) {
+        siap = true;
+        tombol.textContent = 'Klik lagi untuk mencabut';
+        setTimeout(() => { siap = false; tombol.textContent = semula; }, 4000);
+        return;
+      }
+
+      tombol.disabled = true;
+      const res = await fetch('/keys/' + tombol.dataset.cabut, { method: 'DELETE' });
+      if (res.ok) {
+        window.location.reload();
+        return;
+      }
+      const hasil = await res.json();
+      tampilkanError(hasil.error?.message || 'API key gagal dicabut.');
+      tombol.disabled = false;
+      tombol.textContent = semula;
+    });
+  });
+</script>
+<%- include('partials/footer') %>

@@ -1,0 +1,106 @@
+---
+title: ERD — KRL Data API
+---
+erDiagram
+    users ||--o{ api_keys : "memiliki"
+    plans ||--o{ api_keys : "membatasi kuota"
+    api_keys ||--o{ request_logs : "menghasilkan"
+
+    lines ||--o{ line_stations : "punya perhentian"
+    stations ||--o{ line_stations : "menjadi perhentian"
+    lines ||--o{ service_patterns : "dioperasikan menurut"
+    lines |o--o{ fare_rules : "bertarif khusus"
+
+    users {
+        uuid id PK
+        text email UK "disimpan huruf kecil"
+        text password_hash "bcrypt"
+        text full_name
+        timestamptz created_at
+    }
+
+    plans {
+        serial id PK
+        text code UK "free / pro"
+        text name
+        int daily_quota
+        int rate_limit_per_minute
+        int price_idr
+        text description
+    }
+
+    api_keys {
+        uuid id PK
+        uuid user_id FK
+        int plan_id FK
+        text name
+        text key_prefix "12 karakter untuk ditampilkan"
+        text key_hash UK "SHA-256, nilai asli tak disimpan"
+        timestamptz last_used_at
+        timestamptz revoked_at "NULL berarti masih aktif"
+        timestamptz created_at
+    }
+
+    request_logs {
+        bigserial id PK
+        uuid api_key_id FK
+        text endpoint
+        text method
+        int status_code
+        int latency_ms
+        text ip
+        timestamptz created_at
+    }
+
+    stations {
+        serial id PK
+        text code UK "BOO, MRI, THB"
+        text name
+        text city
+        numeric latitude
+        numeric longitude
+        bool is_interchange
+        int interchange_minutes "biaya waktu pindah lin"
+        timestamptz created_at
+    }
+
+    lines {
+        serial id PK
+        text code UK "BOG, CKR, RGD"
+        text name
+        text color_hex
+        text operator
+        text description
+        timestamptz created_at
+    }
+
+    line_stations {
+        serial id PK
+        int line_id FK
+        int station_id FK
+        int stop_order "unik per lin"
+        numeric distance_km_from_origin
+        int travel_minutes_from_prev
+    }
+
+    service_patterns {
+        serial id PK
+        int line_id FK
+        text direction "up / down"
+        text day_type "weekday / weekend"
+        time start_time
+        time end_time
+        int headway_minutes "jarak antar keberangkatan"
+    }
+
+    fare_rules {
+        serial id PK
+        int line_id FK "NULL = berlaku se-jaringan"
+        text name
+        int base_fare_idr
+        numeric base_distance_km
+        int increment_fare_idr
+        numeric increment_distance_km
+        date effective_from
+        date effective_to "NULL = masih berlaku"
+    }

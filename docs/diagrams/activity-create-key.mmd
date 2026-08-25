@@ -1,0 +1,39 @@
+---
+title: Activity Diagram — Membuat API Key
+---
+flowchart TD
+    START([Mulai]) --> BUKA["Developer membuka /dashboard"]
+    BUKA --> JWT{"JWT sah?"}
+    JWT -- tidak --> LOGIN["Arahkan ke /login"]
+    LOGIN --> SELESAI2([Selesai])
+
+    JWT -- ya --> FORM[/"Isi nama API key<br/>dan pilih paket"/]
+    FORM --> POST["POST /keys"]
+    POST --> NAMA{"Nama ≥ 2 karakter?"}
+    NAMA -- tidak --> E400["400 bad_request"]
+    E400 --> FORM
+
+    NAMA -- ya --> BATAS{"API key aktif < 10?"}
+    BATAS -- tidak --> E403["403 forbidden<br/>cabut API key lama dulu"]
+    E403 --> SELESAI2
+
+    BATAS -- ya --> PAKET{"Kode paket dikenal?"}
+    PAKET -- tidak --> E400B["400 bad_request"]
+    E400B --> FORM
+
+    PAKET -- ya --> ACAK["Bangkitkan 16 byte acak<br/>krl_live_&lt;32 heksadesimal&gt;"]
+    ACAK --> SHA["Hitung SHA-256 dari API key"]
+    SHA --> SIMPAN[("INSERT INTO api_keys<br/>simpan hash + 12 karakter awal,<br/>BUKAN API key aslinya")]
+    SIMPAN --> TAMPIL["201 Created<br/>tampilkan API key utuh SATU KALI"]
+    TAMPIL --> SALIN[/"Developer menyalin API key"/]
+    SALIN --> CATAT["Setelah halaman dimuat ulang,<br/>hanya versi tersamar yang terlihat"]
+    CATAT --> SELESAI([Selesai])
+
+    classDef mulai fill:#10141c,stroke:#10141c,color:#fff
+    classDef galat fill:#fcf1f0,stroke:#c0261c,color:#10141c
+    classDef data fill:#f2f4f7,stroke:#5a6473
+    classDef penting fill:#fdf6e8,stroke:#a86800
+    class START,SELESAI,SELESAI2 mulai
+    class E400,E400B,E403 galat
+    class SIMPAN data
+    class TAMPIL penting

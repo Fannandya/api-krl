@@ -1,0 +1,28 @@
+---
+title: Activity Diagram — Pendaftaran dan Masuk
+---
+flowchart TD
+    START([Mulai]) --> ISI[/"Pengunjung mengisi<br/>nama, e-mail, kata sandi"/]
+    ISI --> KIRIM["POST /auth/register"]
+    KIRIM --> VALID{"Data sah?<br/>e-mail berformat benar,<br/>sandi ≥ 8 karakter"}
+
+    VALID -- tidak --> E400["400 bad_request<br/>berisi daftar kolom yang salah"]
+    E400 --> ISI
+
+    VALID -- ya --> CEK{"E-mail sudah<br/>terdaftar?"}
+    CEK -- ya --> E409["409 conflict"]
+    E409 --> ISI
+
+    CEK -- tidak --> HASH["Hash kata sandi dengan bcrypt<br/>(10 putaran)"]
+    HASH --> SIMPAN[("INSERT INTO users")]
+    SIMPAN --> TOKEN["Terbitkan JWT HS256<br/>masa berlaku 1 jam"]
+    TOKEN --> KIRIMBALIK["Kirim token dua jalur:<br/>cookie httpOnly untuk peramban,<br/>badan JSON untuk Postman"]
+    KIRIMBALIK --> DASH["Arahkan ke /dashboard"]
+    DASH --> SELESAI([Selesai])
+
+    classDef mulai fill:#10141c,stroke:#10141c,color:#fff
+    classDef galat fill:#fcf1f0,stroke:#c0261c,color:#10141c
+    classDef data fill:#f2f4f7,stroke:#5a6473
+    class START,SELESAI mulai
+    class E400,E409 galat
+    class SIMPAN data

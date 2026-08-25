@@ -1,0 +1,75 @@
+---
+title: Use Case Diagram — KRL Data API
+---
+flowchart LR
+    PENGUNJUNG(["👤 Pengunjung"])
+    DEVELOPER(["👤 Developer<br/>pemilik akun"])
+    KLIEN(["🖥️ Aplikasi Klien<br/>aktor sistem"])
+
+    subgraph AKUN["Pengelolaan akun"]
+        direction TB
+        UC1(["Mendaftar akun"])
+        UC2(["Masuk dengan JWT"])
+        UC18(["Membaca dokumentasi"])
+        UC3(["Melihat profil"])
+        UC4(["Keluar"])
+    end
+
+    subgraph KEYS["Pengelolaan API key"]
+        direction TB
+        UC5(["Membuat API key"])
+        UC6(["Melihat daftar API key"])
+        UC7(["Mencabut API key"])
+        UC8(["Melihat statistik pemakaian"])
+    end
+
+    subgraph DATA["Pengambilan data"]
+        direction TB
+        UC9(["Mencari stasiun"])
+        UC10(["Melihat detail lin"])
+        UC11(["Melihat jadwal keberangkatan"])
+        UC12(["Mencari rute perjalanan"])
+        UC13(["Menghitung tarif"])
+    end
+
+    subgraph BERSAMA["Perilaku bersama sistem"]
+        direction TB
+        UC14(["Memvalidasi API key"])
+        UC15(["Memeriksa kuota harian"])
+        UC16(["Mencatat pemakaian"])
+        UC17(["Menolak: kuota habis"])
+    end
+
+    PENGUNJUNG --> UC1
+    PENGUNJUNG --> UC2
+    PENGUNJUNG --> UC18
+
+    DEVELOPER --> UC3
+    DEVELOPER --> UC4
+    DEVELOPER --> UC5
+    DEVELOPER --> UC6
+    DEVELOPER --> UC7
+    DEVELOPER --> UC8
+
+    KLIEN --> UC9
+    KLIEN --> UC10
+    KLIEN --> UC11
+    KLIEN --> UC12
+    KLIEN --> UC13
+
+    UC9  -.->|include| UC14
+    UC10 -.->|include| UC14
+    UC11 -.->|include| UC14
+    UC12 -.->|include| UC14
+    UC13 -.->|include| UC14
+    UC14 -.->|include| UC15
+    UC15 -.->|include| UC16
+    UC17 -.->|extend| UC15
+    UC12 -.->|include| UC13
+
+    classDef aktor fill:#10141c,stroke:#10141c,color:#fff
+    classDef uc fill:#fff,stroke:#5a6473,color:#10141c
+    classDef bersama fill:#eef1f6,stroke:#8b95a5,color:#10141c,stroke-dasharray: 4 3
+    class PENGUNJUNG,DEVELOPER,KLIEN aktor
+    class UC1,UC2,UC3,UC4,UC5,UC6,UC7,UC8,UC9,UC10,UC11,UC12,UC13,UC18 uc
+    class UC14,UC15,UC16,UC17 bersama

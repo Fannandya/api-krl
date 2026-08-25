@@ -1,0 +1,107 @@
+<%- include('partials/head', { title: 'Beranda' }) %>
+<%- include('partials/header') %>
+
+<main class="page stack">
+
+  <section>
+    <p class="eyebrow">Data KRL Commuter Line Jabodetabek</p>
+    <h1>Jaringan KRL, dalam bentuk yang bisa dipanggil program</h1>
+    <p class="lede" style="margin-top:16px">
+      <%= stats.station_count %> stasiun, <%= stats.line_count %> lin, dan
+      <%= stats.total_length_km %> km rel. Ambil datanya lewat HTTP, termasuk
+      pencarian rute antar stasiun beserta tarifnya.
+    </p>
+  </section>
+
+  <!-- Hero: diagram jalur sungguhan, dibaca langsung dari basis data. -->
+  <section class="panel">
+    <div class="panel__head">
+      <div>
+        <p class="eyebrow" style="margin-bottom:6px">Contoh isi data</p>
+        <h2><%= featuredLine.name %></h2>
+      </div>
+      <span class="chip chip--line" style="--chip-color: <%= featuredLine.color_hex %>">
+        <%= featuredLine.code %> · <%= featuredLine.length_km %> km · <%= featuredLine.travel_minutes %> menit
+      </span>
+    </div>
+
+    <div class="diagram">
+      <div class="diagram__track">
+        <% featuredLine.stations.forEach((s) => { %>
+          <div class="diagram__stop" style="--stop-color: <%= featuredLine.color_hex %>">
+            <span class="diagram__dot <%= s.is_interchange ? 'diagram__dot--interchange' : '' %>"></span>
+            <div class="diagram__code"><%= s.code %></div>
+            <div class="diagram__name"><%= s.name %></div>
+            <div class="diagram__km"><%= s.distance_km_from_origin %> km</div>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+    <p class="small muted" style="margin-top:14px">
+      Bulatan hitam menandai stasiun transit — di situlah mesin pencari rute
+      memperhitungkan waktu pindah lin.
+    </p>
+  </section>
+
+  <section class="grid grid--stats">
+    <div class="stat">
+      <div class="stat__value"><%= stats.station_count %></div>
+      <div class="stat__label">Stasiun</div>
+    </div>
+    <div class="stat">
+      <div class="stat__value"><%= stats.line_count %></div>
+      <div class="stat__label">Lin</div>
+    </div>
+    <div class="stat">
+      <div class="stat__value"><%= stats.interchange_count %></div>
+      <div class="stat__label">Stasiun transit</div>
+    </div>
+    <div class="stat">
+      <div class="stat__value"><%= stats.total_length_km %></div>
+      <div class="stat__label">Kilometer rel</div>
+    </div>
+    <div class="stat">
+      <div class="stat__value"><%= stats.city_count %></div>
+      <div class="stat__label">Kota / kabupaten</div>
+    </div>
+  </section>
+
+  <section class="grid grid--2">
+    <div class="panel">
+      <h2>Cara memakainya</h2>
+      <p class="muted small" style="margin-top:10px">
+        Daftar, buat satu API key, lalu sertakan key itu pada setiap
+        permintaan. Kuota harian berjalan per key.
+      </p>
+      <pre class="code" style="margin-top:16px">curl "<%= appUrl %>/v1/route" \
+  -H "<b>X-API-Key: krl_live_...</b>" \
+  -H "Content-Type: application/json" \
+  -d '{"from":"BOO","to":"THB"}'</pre>
+      <p style="margin-top:18px">
+        <% if (user) { %>
+          <a class="btn btn--primary" href="/dashboard">Buka dashboard</a>
+        <% } else { %>
+          <a class="btn btn--primary" href="/register">Buat akun</a>
+        <% } %>
+        <a class="btn" href="/docs" style="margin-left:8px">Baca dokumentasi</a>
+      </p>
+    </div>
+
+    <div class="panel">
+      <h2>Lin yang tersedia</h2>
+      <div class="grid" style="gap:11px; margin-top:16px">
+        <% lines.forEach((l) => { %>
+          <div style="display:flex; align-items:baseline; gap:12px; flex-wrap:wrap">
+            <span class="chip chip--line" style="--chip-color: <%= l.color_hex %>"><%= l.code %></span>
+            <span style="font-weight:500"><%= l.name %></span>
+            <span class="small muted" style="margin-left:auto; font-family:var(--font-mono)">
+              <%= l.station_count %> stasiun · <%= l.length_km %> km
+            </span>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  </section>
+
+</main>
+<%- include('partials/footer') %>

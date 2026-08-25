@@ -1,0 +1,139 @@
+<%- include('partials/head', { title: 'Dokumentasi' }) %>
+<%- include('partials/header') %>
+
+<main class="page stack">
+
+  <div>
+    <p class="eyebrow">Referensi API · v1</p>
+    <h1>Dokumentasi</h1>
+    <p class="lede" style="margin-top:14px">
+      Semua endpoint di bawah <code class="inline">/v1</code> memerlukan API key.
+      Endpoint akun memerlukan token JWT.
+    </p>
+  </div>
+
+  <div class="notice notice--warn">
+    Data pada layanan ini adalah <strong>data referensi terkurasi untuk keperluan
+    akademik</strong>. Jarak, waktu tempuh, dan jadwal mendekati kondisi nyata
+    tetapi bukan data operasional resmi KAI Commuter, dan tidak boleh dipakai
+    untuk perencanaan perjalanan sungguhan.
+  </div>
+
+  <section class="panel">
+    <h2>Autentikasi</h2>
+    <p class="muted small" style="margin-top:10px">
+      Ada dua kredensial yang berbeda tugas. JWT dipakai manusia untuk mengelola
+      akun dan API key; API key dipakai program untuk mengambil data.
+    </p>
+
+    <div class="grid grid--2" style="margin-top:18px">
+      <div>
+        <p class="eyebrow">Token JWT · untuk akun</p>
+        <pre class="code">curl -X POST <%= appUrl %>/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"kamu@contoh.com","password":"..."}'
+
+<b># pakai token pada endpoint akun</b>
+curl <%= appUrl %>/keys \
+  -H "Authorization: Bearer $TOKEN"</pre>
+      </div>
+      <div>
+        <p class="eyebrow">API key · untuk data</p>
+        <pre class="code">curl "<%= appUrl %>/v1/stations?line=BOG" \
+  -H "X-API-Key: krl_live_..."
+
+<b># tiap balasan membawa sisa kuota</b>
+X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 987
+X-RateLimit-Reset: 2026-08-25T00:00:00.000Z</pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Endpoint data</h2>
+    <p class="muted small" style="margin-top:8px; margin-bottom:16px">Perlu header <code class="inline">X-API-Key</code>.</p>
+    <div class="endpoints">
+      <% dataEndpoints.forEach((e) => { %>
+        <div class="endpoint">
+          <span class="method <%= e.method === 'POST' ? 'method--post' : '' %>"><%= e.method %></span>
+          <span class="endpoint__path"><%= e.path %></span>
+          <span class="endpoint__what"><%= e.what %></span>
+        </div>
+      <% }) %>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Endpoint akun</h2>
+    <p class="muted small" style="margin-top:8px; margin-bottom:16px">Perlu token JWT, kecuali daftar dan masuk.</p>
+    <div class="endpoints">
+      <% accountEndpoints.forEach((e) => { %>
+        <div class="endpoint">
+          <span class="method <%= e.method === 'GET' ? '' : 'method--post' %>"><%= e.method %></span>
+          <span class="endpoint__path"><%= e.path %></span>
+          <span class="endpoint__what"><%= e.what %></span>
+        </div>
+      <% }) %>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel__head">
+      <h2>Contoh: cari rute dan tarifnya</h2>
+      <span class="chip">Endpoint andalan</span>
+    </div>
+    <p class="muted small" style="margin-bottom:16px">
+      Rute dicari dengan algoritma Dijkstra di atas graf jaringan. Yang
+      diminimalkan adalah waktu tempuh, termasuk waktu pindah lin — sehingga
+      rute yang lebih jauh bisa saja terpilih bila lebih cepat.
+    </p>
+    <pre class="code">curl -X POST <%= appUrl %>/v1/route \
+  -H "X-API-Key: krl_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{"from":"BOO","to":"THB","day_type":"weekday"}'</pre>
+
+    <pre class="code" style="margin-top:12px"><%= contohRute %></pre>
+  </section>
+
+  <section class="panel">
+    <h2>Kode stasiun</h2>
+    <p class="muted small" style="margin-top:8px; margin-bottom:16px">
+      Semua endpoint memakai kode stasiun, bukan nama. Daftar lengkap ada di
+      <code class="inline">GET /v1/stations</code>.
+    </p>
+    <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap:7px">
+      <% interchanges.forEach((s) => { %>
+        <div style="display:flex; gap:9px; align-items:baseline; font-size:13px">
+          <code class="inline" style="font-weight:700"><%= s.code %></code>
+          <span><%= s.name %></span>
+        </div>
+      <% }) %>
+    </div>
+    <p class="small muted" style="margin-top:14px">
+      Yang ditampilkan di atas adalah stasiun transit — titik tempat berpindah lin.
+    </p>
+  </section>
+
+  <section class="panel">
+    <h2>Kode error</h2>
+    <div class="endpoints" style="margin-top:14px">
+      <% errorCodes.forEach((e) => { %>
+        <div class="endpoint">
+          <span class="method" style="background: var(--stop)"><%= e.status %></span>
+          <span class="endpoint__path"><%= e.code %></span>
+          <span class="endpoint__what"><%= e.what %></span>
+        </div>
+      <% }) %>
+    </div>
+    <pre class="code" style="margin-top:16px">{
+  "error": {
+    "code": "quota_exceeded",
+    "message": "Kuota harian paket Free sudah habis.",
+    "details": { "limit": 1000, "used": 1000, "reset_at": "..." }
+  }
+}</pre>
+  </section>
+
+</main>
+<%- include('partials/footer') %>

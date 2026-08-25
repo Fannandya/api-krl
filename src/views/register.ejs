@@ -1,0 +1,67 @@
+<%- include('partials/head', { title: 'Daftar' }) %>
+<%- include('partials/header') %>
+
+<main class="page page--narrow stack">
+  <div>
+    <p class="eyebrow">Akun developer</p>
+    <h1>Buat akun</h1>
+    <p class="lede" style="margin-top:12px; font-size:15px">
+      Setelah mendaftar kamu langsung bisa membuat API key paket Free —
+      1.000 permintaan per hari.
+    </p>
+  </div>
+
+  <div class="notice notice--error" id="pesan" hidden></div>
+
+  <form class="panel" id="form-daftar" novalidate>
+    <label class="field">
+      <span class="field__label">Nama lengkap</span>
+      <input class="input" type="text" name="full_name" autocomplete="name" required>
+    </label>
+    <label class="field">
+      <span class="field__label">E-mail</span>
+      <input class="input" type="email" name="email" autocomplete="email" required>
+    </label>
+    <label class="field">
+      <span class="field__label">Kata sandi</span>
+      <input class="input" type="password" name="password" autocomplete="new-password" minlength="8" required>
+      <span class="small muted" style="display:block; margin-top:6px">Minimal 8 karakter.</span>
+    </label>
+    <div style="margin-top:22px">
+      <button class="btn btn--primary btn--block" type="submit">Daftar</button>
+    </div>
+  </form>
+
+  <p class="small muted">Sudah punya akun? <a href="/login">Masuk</a>.</p>
+</main>
+
+<script>
+  const form = document.getElementById('form-daftar');
+  const pesan = document.getElementById('pesan');
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const tombol = form.querySelector('button');
+    tombol.disabled = true;
+    pesan.hidden = true;
+
+    const body = Object.fromEntries(new FormData(form));
+    const res = await fetch('/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const hasil = await res.json();
+
+    if (res.ok) {
+      window.location.href = '/dashboard';
+      return;
+    }
+
+    const rincian = (hasil.error?.details || []).map((d) => d.message).join(' ');
+    pesan.textContent = [hasil.error?.message, rincian].filter(Boolean).join(' ');
+    pesan.hidden = false;
+    tombol.disabled = false;
+  });
+</script>
+<%- include('partials/footer') %>

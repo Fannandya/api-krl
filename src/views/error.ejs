@@ -1,0 +1,11 @@
+<%- include('partials/head', { title: 'Error ' + statusCode }) %>
+<%- include('partials/header') %>
+<main class="page page--narrow stack">
+  <div>
+    <p class="eyebrow">Kode <%= statusCode %></p>
+    <h1><%= statusCode === 404 ? 'Halaman ini tidak ada' : 'Ada yang tidak beres' %></h1>
+  </div>
+  <p class="lede"><%= message %></p>
+  <p><a class="btn" href="/">Kembali ke beranda</a></p>
+</main>
+<%- include('partials/footer') %>

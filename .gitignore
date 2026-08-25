@@ -1,0 +1,45 @@
+# Dependensi
+node_modules/
+
+# Environment variables & kredensial rahasia
+.env
+.env.*
+!.env.example
+
+# Deployment & build artifacts
+.vercel
+build/
+dist/
+
+# Logs & debuggers
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# macOS / OS metadata (PENTING untuk Mac)
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Editor & IDE settings
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Konfigurasi & dokumen lokal
+AGENTS.md
+docs/*.pdf
+docs/diagrams/.mermaid-config.json
+
+# Keluaran alat bantu
+graphify-out/

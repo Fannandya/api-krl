@@ -1,0 +1,15 @@
+<footer class="foot">
+  <div class="foot__inner">
+    <span>KRL Data API — proyek akademik Pemrograman Web Lanjut.</span>
+    <span>Data referensi terkurasi, bukan data operasional resmi KAI Commuter.</span>
+  </div>
+</footer>
+<script>
+  document.getElementById('logout')?.addEventListener('click', async (event) => {
+    event.preventDefault();
+    await fetch('/auth/logout', { method: 'POST' });
+    window.location.href = '/';
+  });
+</script>
+</body>
+</html>

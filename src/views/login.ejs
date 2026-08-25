@@ -1,0 +1,58 @@
+<%- include('partials/head', { title: 'Masuk' }) %>
+<%- include('partials/header') %>
+
+<main class="page page--narrow stack">
+  <div>
+    <p class="eyebrow">Akun developer</p>
+    <h1>Masuk</h1>
+  </div>
+
+  <div class="notice notice--error" id="pesan" hidden></div>
+
+  <form class="panel" id="form-masuk" novalidate>
+    <label class="field">
+      <span class="field__label">E-mail</span>
+      <input class="input" type="email" name="email" autocomplete="email" required>
+    </label>
+    <label class="field">
+      <span class="field__label">Kata sandi</span>
+      <input class="input" type="password" name="password" autocomplete="current-password" required>
+    </label>
+    <div style="margin-top:22px">
+      <button class="btn btn--primary btn--block" type="submit">Masuk</button>
+    </div>
+  </form>
+
+  <p class="small muted">Belum punya akun? <a href="/register">Daftar di sini</a>.</p>
+</main>
+
+<script>
+  const form = document.getElementById('form-masuk');
+  const pesan = document.getElementById('pesan');
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const tombol = form.querySelector('button');
+    tombol.disabled = true;
+    pesan.hidden = true;
+
+    const body = Object.fromEntries(new FormData(form));
+    const res = await fetch('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const hasil = await res.json();
+
+    if (res.ok) {
+      const tujuan = new URLSearchParams(window.location.search).get('next');
+      window.location.href = tujuan && tujuan.startsWith('/') ? tujuan : '/dashboard';
+      return;
+    }
+
+    pesan.textContent = hasil.error?.message || 'Tidak bisa masuk. Coba lagi.';
+    pesan.hidden = false;
+    tombol.disabled = false;
+  });
+</script>
+<%- include('partials/footer') %>

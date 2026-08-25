@@ -1,0 +1,16 @@
+<header class="signage">
+  <div class="signage__inner">
+    <a class="signage__mark" href="/">KRL <span>Data API</span></a>
+    <nav class="signage__nav">
+      <a href="/docs">Dokumentasi</a>
+      <% if (user) { %>
+        <a href="/dashboard">Dashboard</a>
+        <span class="signage__who"><%= user.email %></span>
+        <a href="#" id="logout">Keluar</a>
+      <% } else { %>
+        <a href="/login">Masuk</a>
+        <a href="/register">Daftar</a>
+      <% } %>
+    </nav>
+  </div>
+</header>

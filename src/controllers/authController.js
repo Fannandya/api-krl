@@ -16,6 +16,10 @@ const COOKIE_NAME = 'token';
  * dan di badan respons untuk klien seperti Postman. Cookie httpOnly tidak bisa
  * dibaca JavaScript sehingga aman dari pencurian lewat XSS, tetapi klien non
  * peramban memang butuh tokennya secara langsung.
+ *
+ * Umur cookie dan medan expires_in berasal dari satu nilai yang sama supaya
+ * peramban dan klien program tidak pernah punya anggapan berbeda tentang kapan
+ * sesinya berakhir.
  */
 function issueSession(res, user) {
   const config = loadConfig();
@@ -25,10 +29,10 @@ function issueSession(res, user) {
     httpOnly: true,
     sameSite: 'lax',
     secure: config.isProduction,
-    maxAge: 60 * 60 * 1000,
+    maxAge: config.jwtExpiresSeconds * 1000,
   });
 
-  return token;
+  return { token, expiresIn: config.jwtExpiresSeconds };
 }
 
 /** POST /auth/register */
@@ -50,14 +54,14 @@ exports.register = async (req, res) => {
     fullName: String(fullName).trim(),
   });
 
-  const token = issueSession(res, user);
+  const { token, expiresIn } = issueSession(res, user);
 
   return res.status(201).json({
     data: {
       user: { id: user.id, email: user.email, full_name: user.full_name },
       token,
       token_type: 'Bearer',
-      expires_in: 3600,
+      expires_in: expiresIn,
     },
   });
 };
@@ -77,14 +81,14 @@ exports.login = async (req, res) => {
   if (!user) throw invalid;
   if (!(await verifyPassword(password, user.password_hash))) throw invalid;
 
-  const token = issueSession(res, user);
+  const { token, expiresIn } = issueSession(res, user);
 
   return res.json({
     data: {
       user: { id: user.id, email: user.email, full_name: user.full_name },
       token,
       token_type: 'Bearer',
-      expires_in: 3600,
+      expires_in: expiresIn,
     },
   });
 };

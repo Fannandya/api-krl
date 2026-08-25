@@ -22,7 +22,7 @@ function signToken(user) {
   return jwt.sign(
     { sub: user.id, email: user.email, name: user.full_name },
     config.jwtSecret,
-    { expiresIn: config.jwtExpiresIn }
+    { expiresIn: config.jwtExpiresSeconds }
   );
 }
 

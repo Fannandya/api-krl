@@ -70,10 +70,11 @@
     <div class="panel">
       <h2>Cara memakainya</h2>
       <p class="muted small" style="margin-top:10px">
-        Daftar, buat satu API key, lalu sertakan key itu pada setiap
-        permintaan. Kuota harian berjalan per key.
+        Daftar, masuk, lalu buat satu API key. Setiap permintaan data membawa
+        token sesi dan key itu sekaligus. Kuota harian berjalan per key.
       </p>
       <pre class="code" style="margin-top:16px">curl "<%= appUrl %>/v1/route" \
+  -H "<b>Authorization: Bearer $TOKEN</b>" \
   -H "<b>X-API-Key: krl_live_...</b>" \
   -H "Content-Type: application/json" \
   -d '{"from":"BOO","to":"THB"}'</pre>

@@ -8,16 +8,13 @@ const { findActiveApiKeyByHash, touchLastUsed } = require('../models/apiKeys');
  * Autentikasi untuk endpoint data. Berbeda dari JWT: ini dipakai mesin, bukan
  * manusia, sehingga kredensialnya berumur panjang dan bisa dicabut kapan saja.
  *
- * API key diterima lewat header X-API-Key, atau lewat Authorization: Bearer
- * untuk klien yang hanya mengenal cara itu.
+ * API key hanya diterima lewat header X-API-Key. Header Authorization sudah
+ * menjadi milik token JWT sejak endpoint data mewajibkan sesi yang masuk, jadi
+ * membacanya di sini hanya akan membuat token login dilaporkan sebagai "API key
+ * tidak dikenali".
  */
 async function requireApiKey(req, res, next) {
-  const header = req.get('x-api-key');
-  const authorization = req.get('authorization');
-  const raw = header
-    || (authorization && authorization.toLowerCase().startsWith('bearer ')
-      ? authorization.slice(7).trim()
-      : null);
+  const raw = req.get('x-api-key');
 
   if (!raw) {
     return next(ApiError.unauthorized(
@@ -60,4 +57,19 @@ async function requireApiKey(req, res, next) {
   }
 }
 
-module.exports = { requireApiKey };
+/**
+ * Pastikan API key yang dipakai memang milik akun yang sedang masuk. Tanpa ini
+ * sebuah key yang bocor masih bisa dipakai bersama sesi akun mana pun, dan
+ * kuotanya terhitung ke pemilik yang keliru.
+ *
+ * Dipasang sesudah requireJwt dan requireApiKey, jadi req.user dan req.apiKey
+ * dijamin sudah terisi.
+ */
+function requireApiKeyOwner(req, res, next) {
+  if (req.apiKey.userId !== req.user.id) {
+    return next(ApiError.forbidden('API key ini bukan milik akun yang sedang masuk.'));
+  }
+  return next();
+}
+
+module.exports = { requireApiKey, requireApiKeyOwner };

@@ -11,6 +11,7 @@ const { createApp } = require('../src/app');
 const app = createApp();
 
 let key;
+let token;
 
 /** Satu akun dan satu API key dipakai bersama oleh seluruh kasus di berkas ini. */
 test.before(async () => {
@@ -22,9 +23,11 @@ test.before(async () => {
     .send({ email: uniqueEmail(), password: 'katasandi123', full_name: 'Pemakai Data' })
     .expect(201);
 
+  token = daftar.body.data.token;
+
   const dibuat = await request(app)
     .post('/keys')
-    .set('Authorization', `Bearer ${daftar.body.data.token}`)
+    .set('Authorization', `Bearer ${token}`)
     .send({ name: 'Key Data' })
     .expect(201);
 
@@ -33,8 +36,56 @@ test.before(async () => {
 
 test.after(async () => { await closeDatabase(); });
 
-const ambil = (path) => request(app).get(path).set('X-API-Key', key);
-const kirim = (path, body) => request(app).post(path).set('X-API-Key', key).send(body);
+// Endpoint data menuntut dua kredensial sekaligus: sesi yang sah dan API key
+// milik akun itu juga.
+const ambil = (path) => request(app).get(path)
+  .set('Authorization', `Bearer ${token}`)
+  .set('X-API-Key', key);
+const kirim = (path, body) => request(app).post(path)
+  .set('Authorization', `Bearer ${token}`)
+  .set('X-API-Key', key)
+  .send(body);
+
+// --- gerbang autentikasi --------------------------------------------------
+
+test('API key sah tanpa sesi yang masuk ditolak', async () => {
+  const res = await request(app).get('/v1/stations').set('X-API-Key', key).expect(401);
+
+  assert.strictEqual(res.body.error.code, 'unauthorized');
+});
+
+test('sesi yang masuk tanpa API key ditolak', async () => {
+  const res = await request(app)
+    .get('/v1/stations')
+    .set('Authorization', `Bearer ${token}`)
+    .expect(401);
+
+  assert.strictEqual(res.body.error.code, 'unauthorized');
+  // Token sesi tidak boleh disalahartikan sebagai API key yang tidak dikenali;
+  // yang kurang adalah header X-API-Key, dan pesannya harus mengatakan itu.
+  assert.match(res.body.error.message, /X-API-Key/);
+});
+
+test('API key milik akun lain ditolak meski sesinya sah', async () => {
+  const lain = await request(app)
+    .post('/auth/register')
+    .send({ email: uniqueEmail(), password: 'katasandi123', full_name: 'Pemakai Lain' })
+    .expect(201);
+
+  const keyLain = await request(app)
+    .post('/keys')
+    .set('Authorization', `Bearer ${lain.body.data.token}`)
+    .send({ name: 'Key Lain' })
+    .expect(201);
+
+  const res = await request(app)
+    .get('/v1/stations')
+    .set('Authorization', `Bearer ${token}`)
+    .set('X-API-Key', keyLain.body.data.key)
+    .expect(403);
+
+  assert.strictEqual(res.body.error.code, 'forbidden');
+});
 
 // --- stasiun --------------------------------------------------------------
 

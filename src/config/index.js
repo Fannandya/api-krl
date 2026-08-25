@@ -22,10 +22,20 @@ function loadConfig() {
     throw new Error('JWT_SECRET harus minimal 32 karakter.');
   }
 
+  // Masa berlaku token dipakai di tiga tempat (penandatanganan, umur cookie,
+  // dan medan expires_in pada respons), jadi ia dibaca sekali di sini supaya
+  // ketiganya tidak bisa saling menyimpang.
+  const jwtExpiresSeconds = Number(process.env.JWT_EXPIRES || 3600);
+  if (!Number.isInteger(jwtExpiresSeconds) || jwtExpiresSeconds <= 0) {
+    throw new Error(
+      'JWT_EXPIRES harus bilangan bulat positif dalam satuan detik, misalnya 3600 untuk 1 jam.'
+    );
+  }
+
   return {
     databaseUrl: process.env.DATABASE_URL,
     jwtSecret: process.env.JWT_SECRET,
-    jwtExpiresIn: '1h',
+    jwtExpiresSeconds,
     nodeEnv: process.env.NODE_ENV || 'development',
     appUrl: process.env.APP_URL || 'http://localhost:3000',
     port: Number(process.env.PORT || 3000),

@@ -91,6 +91,7 @@ const ACCOUNT_ENDPOINTS = [
 const ERROR_CODES = [
   { status: 400, code: 'bad_request', what: 'Parameter kurang atau formatnya tidak sesuai.' },
   { status: 401, code: 'unauthorized', what: 'API key atau token JWT tidak ada, salah, atau sudah dicabut.' },
+  { status: 403, code: 'forbidden', what: 'API key yang dipakai bukan milik akun yang sedang masuk.' },
   { status: 404, code: 'not_found', what: 'Kode stasiun, lin, atau API key tidak ditemukan.' },
   { status: 422, code: 'unprocessable_entity', what: 'Permintaan sah tetapi tidak bisa dipenuhi, misalnya dua stasiun yang tidak terhubung.' },
   { status: 429, code: 'quota_exceeded', what: 'Kuota harian paket sudah habis. Lihat header X-RateLimit-Reset.' },

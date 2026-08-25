@@ -30,24 +30,32 @@
   <section class="panel">
     <h2>Autentikasi</h2>
     <p class="muted small" style="margin-top:10px">
-      Ada dua kredensial yang berbeda tugas. JWT dipakai manusia untuk mengelola
-      akun dan API key; API key dipakai program untuk mengambil data.
+      Ada dua kredensial dengan tugas berbeda. Token JWT membuktikan siapa kamu;
+      API key menentukan kuota mana yang dipakai dan mencatat pemakaiannya.
+      <strong>Endpoint data <code class="inline">/v1</code> menuntut dua-duanya
+      sekaligus</strong>, dan API key itu harus milik akun yang sedang masuk —
+      kalau tidak, balasannya <code class="inline">403 forbidden</code>.
+      Hanya <code class="inline">/auth/register</code> dan
+      <code class="inline">/auth/login</code> yang terbuka tanpa kredensial.
     </p>
 
     <div class="grid grid--2" style="margin-top:18px">
       <div>
-        <p class="eyebrow">Token JWT · untuk akun</p>
+        <p class="eyebrow">Langkah 1 · masuk lalu buat API key</p>
         <pre class="code">curl -X POST <%= appUrl %>/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"kamu@contoh.com","password":"..."}'
 
-<b># pakai token pada endpoint akun</b>
-curl <%= appUrl %>/keys \
-  -H "Authorization: Bearer $TOKEN"</pre>
+<b># endpoint akun cukup dengan token</b>
+curl -X POST <%= appUrl %>/keys \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Aplikasi Mobile"}'</pre>
       </div>
       <div>
-        <p class="eyebrow">API key · untuk data</p>
+        <p class="eyebrow">Langkah 2 · panggil endpoint data</p>
         <pre class="code">curl "<%= appUrl %>/v1/stations?line=BOG" \
+  -H "Authorization: Bearer $TOKEN" \
   -H "X-API-Key: krl_live_..."
 
 <b># tiap balasan membawa sisa kuota</b>
@@ -60,7 +68,10 @@ X-RateLimit-Reset: 2026-08-25T00:00:00.000Z</pre>
 
   <section class="panel">
     <h2>Endpoint data</h2>
-    <p class="muted small" style="margin-top:8px; margin-bottom:16px">Perlu header <code class="inline">X-API-Key</code>.</p>
+    <p class="muted small" style="margin-top:8px; margin-bottom:16px">
+      Perlu header <code class="inline">Authorization: Bearer &lt;token&gt;</code>
+      dan <code class="inline">X-API-Key</code> sekaligus.
+    </p>
     <div class="endpoints">
       <% dataEndpoints.forEach((e) => { %>
         <div class="endpoint">
@@ -97,6 +108,7 @@ X-RateLimit-Reset: 2026-08-25T00:00:00.000Z</pre>
       rute yang lebih jauh bisa saja terpilih bila lebih cepat.
     </p>
     <pre class="code">curl -X POST <%= appUrl %>/v1/route \
+  -H "Authorization: Bearer $TOKEN" \
   -H "X-API-Key: krl_live_..." \
   -H "Content-Type: application/json" \
   -d '{"from":"BOO","to":"THB","day_type":"weekday"}'</pre>

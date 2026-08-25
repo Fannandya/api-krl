@@ -86,14 +86,18 @@ test('API key yang dicabut langsung ditolak di endpoint data', async () => {
   const { token } = await akunSiapPakai();
   const key = await createKey(token);
 
-  await request(app).get('/v1/stats').set('X-API-Key', key.key).expect(200);
+  await request(app).get('/v1/stats')
+    .set('Authorization', `Bearer ${token}`)
+    .set('X-API-Key', key.key).expect(200);
 
   await request(app)
     .delete(`/keys/${key.id}`)
     .set('Authorization', `Bearer ${token}`)
     .expect(200);
 
-  const ditolak = await request(app).get('/v1/stats').set('X-API-Key', key.key).expect(401);
+  const ditolak = await request(app).get('/v1/stats')
+    .set('Authorization', `Bearer ${token}`)
+    .set('X-API-Key', key.key).expect(401);
   assert.match(ditolak.body.error.message, /dicabut/i);
 });
 
@@ -106,16 +110,30 @@ test('mencabut API key yang sama dua kali ditolak', async () => {
 });
 
 test('endpoint data menolak permintaan tanpa API key maupun dengan key asing', async () => {
+  const { token } = await akunSiapPakai();
+
   await request(app).get('/v1/stations').expect(401);
-  await request(app).get('/v1/stations').set('X-API-Key', 'krl_live_palsu').expect(401);
+  await request(app)
+    .get('/v1/stations')
+    .set('Authorization', `Bearer ${token}`)
+    .expect(401);
+  await request(app)
+    .get('/v1/stations')
+    .set('Authorization', `Bearer ${token}`)
+    .set('X-API-Key', 'krl_live_palsu')
+    .expect(401);
 });
 
 test('setiap permintaan ber-API-key tercatat di request_logs', async () => {
   const { token } = await akunSiapPakai();
   const key = await createKey(token);
 
-  await request(app).get('/v1/lines').set('X-API-Key', key.key).expect(200);
-  await request(app).get('/v1/stations/ZZZ').set('X-API-Key', key.key).expect(404);
+  await request(app).get('/v1/lines')
+    .set('Authorization', `Bearer ${token}`)
+    .set('X-API-Key', key.key).expect(200);
+  await request(app).get('/v1/stations/ZZZ')
+    .set('Authorization', `Bearer ${token}`)
+    .set('X-API-Key', key.key).expect(404);
 
   // Pencatatan terjadi pada event 'finish', jadi beri satu putaran event loop.
   await new Promise((resolve) => setTimeout(resolve, 120));
@@ -139,14 +157,20 @@ test('kuota harian ditegakkan dan permintaan berikutnya ditolak 429', async () =
   );
   const key = await createKey(token, 'Key Sempit', 'uji_sempit');
 
-  const pertama = await request(app).get('/v1/stats').set('X-API-Key', key.key).expect(200);
+  const pertama = await request(app).get('/v1/stats')
+    .set('Authorization', `Bearer ${token}`)
+    .set('X-API-Key', key.key).expect(200);
   assert.strictEqual(pertama.headers['x-ratelimit-limit'], '2');
   assert.strictEqual(pertama.headers['x-ratelimit-remaining'], '2');
 
-  await request(app).get('/v1/stats').set('X-API-Key', key.key).expect(200);
+  await request(app).get('/v1/stats')
+    .set('Authorization', `Bearer ${token}`)
+    .set('X-API-Key', key.key).expect(200);
   await new Promise((resolve) => setTimeout(resolve, 150));
 
-  const ditolak = await request(app).get('/v1/stats').set('X-API-Key', key.key).expect(429);
+  const ditolak = await request(app).get('/v1/stats')
+    .set('Authorization', `Bearer ${token}`)
+    .set('X-API-Key', key.key).expect(429);
   assert.strictEqual(ditolak.body.error.code, 'quota_exceeded');
   assert.strictEqual(ditolak.body.error.details.limit, 2);
   assert.ok(ditolak.body.error.details.reset_at, 'balasan harus memberi tahu kapan kuota pulih');

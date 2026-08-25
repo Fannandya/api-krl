@@ -15,8 +15,9 @@
     <p class="eyebrow">Referensi API · v1</p>
     <h1>Dokumentasi</h1>
     <p class="lede" style="margin-top:14px">
-      Semua endpoint di bawah <code class="inline">/v1</code> memerlukan API key.
-      Endpoint akun memerlukan token JWT.
+      Semua yang dibutuhkan untuk memakai API ini dari nol: mana rute yang
+      terbuka, mana yang terkunci, cara memperoleh kredensial, dan tiap endpoint
+      beserta parameter serta contoh balasannya.
     </p>
   </div>
 
@@ -27,133 +28,319 @@
     untuk perencanaan perjalanan sungguhan.
   </div>
 
-  <section class="panel">
-    <h2>Autentikasi</h2>
-    <p class="muted small" style="margin-top:10px">
-      Ada dua kredensial dengan tugas berbeda. Token JWT membuktikan siapa kamu;
-      API key menentukan kuota mana yang dipakai dan mencatat pemakaiannya.
-      <strong>Endpoint data <code class="inline">/v1</code> menuntut dua-duanya
-      sekaligus</strong>, dan API key itu harus milik akun yang sedang masuk —
-      kalau tidak, balasannya <code class="inline">403 forbidden</code>.
-      Hanya <code class="inline">/auth/register</code> dan
-      <code class="inline">/auth/login</code> yang terbuka tanpa kredensial.
-    </p>
+  <div class="docs">
+    <nav class="docs__toc" aria-label="Daftar isi">
+      <p class="eyebrow">Daftar isi</p>
+      <ol class="docs__list">
+        <li><a href="#mulai">Mulai cepat</a></li>
+        <li><a href="#akses">Peta akses</a></li>
+        <li><a href="#auth">Autentikasi</a></li>
+        <li><a href="#kuota">Kuota &amp; batas</a></li>
+        <li>
+          <a href="#data">Endpoint data</a>
+          <ul class="docs__sub">
+            <% dataEndpoints.forEach((e) => { %>
+              <li><a href="#ep-<%= e.id %>"><%= e.path.replace('/v1', '') || '/' %></a></li>
+            <% }) %>
+          </ul>
+        </li>
+        <li>
+          <a href="#akun">Endpoint akun</a>
+          <ul class="docs__sub">
+            <% accountEndpoints.forEach((e) => { %>
+              <li><a href="#ep-<%= e.id %>"><%= e.path %></a></li>
+            <% }) %>
+          </ul>
+        </li>
+        <li><a href="#error">Kode error</a></li>
+        <li><a href="#kode">Kode stasiun &amp; lin</a></li>
+      </ol>
+    </nav>
 
-    <div class="grid grid--2" style="margin-top:18px">
-      <div>
-        <p class="eyebrow">Langkah 1 · masuk lalu buat API key</p>
-        <pre class="code">curl -X POST <%= appUrl %>/auth/login \
+    <div class="docs__body stack">
+
+      <!-- 1 ------------------------------------------------------------- -->
+      <section class="panel docs__section" id="mulai">
+        <h2>Mulai cepat</h2>
+        <p class="muted small" style="margin-top:10px">
+          Empat langkah dari belum punya apa-apa sampai menerima data. Salin
+          perintahnya satu per satu.
+        </p>
+
+        <ol class="steps">
+          <li>
+            <p><b>Buat akun.</b> Balasannya sudah memuat token, jadi langkah masuk bisa dilewati.</p>
+            <pre class="code">curl -X POST <%= appUrl %>/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"email":"kamu@contoh.com","password":"..."}'
-
-<b># endpoint akun cukup dengan token</b>
-curl -X POST <%= appUrl %>/keys \
+  -d '{"email":"kamu@contoh.com","password":"katasandi123","full_name":"Nama Kamu"}'</pre>
+          </li>
+          <li>
+            <p><b>Simpan tokennya</b> ke variabel. Token berlaku satu jam; kalau
+            kedaluwarsa, ambil yang baru lewat <code class="inline">/auth/login</code>.</p>
+            <pre class="code">TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."</pre>
+          </li>
+          <li>
+            <p><b>Buat API key.</b> Nilainya hanya muncul sekali di balasan ini — simpan baik-baik.</p>
+            <pre class="code">curl -X POST <%= appUrl %>/keys \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"name":"Aplikasi Mobile"}'</pre>
-      </div>
-      <div>
-        <p class="eyebrow">Langkah 2 · panggil endpoint data</p>
-        <pre class="code">curl "<%= appUrl %>/v1/stations?line=BOG" \
+  -d '{"name":"Aplikasi Mobile"}'
+
+KEY="krl_live_..."</pre>
+          </li>
+          <li>
+            <p><b>Panggil endpoint data</b> dengan dua header sekaligus.
+            <code class="inline">/v1/stats</code> paling ringan, cocok untuk memastikan
+            kredensialmu sudah benar.</p>
+            <pre class="code">curl "<%= appUrl %>/v1/stats" \
   -H "Authorization: Bearer $TOKEN" \
-  -H "X-API-Key: krl_live_..."
+  -H "X-API-Key: $KEY"</pre>
+          </li>
+        </ol>
 
-<b># tiap balasan membawa sisa kuota</b>
-X-RateLimit-Limit: 1000
-X-RateLimit-Remaining: 987
-X-RateLimit-Reset: 2026-08-25T00:00:00.000Z</pre>
-      </div>
-    </div>
-  </section>
+        <p class="small muted" style="margin-top:16px">
+          Lebih suka lewat peramban? Daftar di <a href="/register">/register</a>,
+          lalu buat API key dari <a href="/dashboard">dashboard</a>.
+        </p>
+      </section>
 
-  <section class="panel">
-    <h2>Endpoint data</h2>
-    <p class="muted small" style="margin-top:8px; margin-bottom:16px">
-      Perlu header <code class="inline">Authorization: Bearer &lt;token&gt;</code>
-      dan <code class="inline">X-API-Key</code> sekaligus.
-    </p>
-    <div class="endpoints">
-      <% dataEndpoints.forEach((e) => { %>
-        <div class="endpoint">
-          <span class="method <%= e.method === 'POST' ? 'method--post' : '' %>"><%= e.method %></span>
-          <span class="endpoint__path"><%= e.path %></span>
-          <span class="endpoint__what"><%= e.what %></span>
+      <!-- 2 ------------------------------------------------------------- -->
+      <section class="panel docs__section" id="akses">
+        <h2>Peta akses</h2>
+        <p class="muted small" style="margin-top:10px">
+          Hanya pendaftaran dan masuk yang terbuka tanpa kredensial. Selebihnya
+          menuntut token, dan endpoint data menuntut token <em>dan</em> API key.
+        </p>
+
+        <table class="params akses" style="margin-top:16px">
+          <thead>
+            <tr><th>Butuh apa</th><th>Rute</th><th>Keterangan</th></tr>
+          </thead>
+          <tbody>
+            <% accessMap.forEach((baris) => { %>
+              <tr>
+                <td><span class="ep__auth"><%= authLabels[baris.akses].label %></span></td>
+                <td>
+                  <% baris.rute.forEach((r) => { %><code class="inline akses__rute"><%= r %></code><% }) %>
+                </td>
+                <td class="muted"><%= baris.what %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+
+        <p class="small muted" style="margin-top:14px">
+          Halaman <code class="inline">/dashboard</code> memang butuh token, tetapi
+          pengunjung yang belum masuk diarahkan ke halaman login, bukan disodori
+          error 401 — jawaban 401 tepat untuk program, buntu untuk orang yang
+          sedang membuka peramban.
+        </p>
+      </section>
+
+      <!-- 3 ------------------------------------------------------------- -->
+      <section class="panel docs__section" id="auth">
+        <h2>Autentikasi</h2>
+        <p class="muted small" style="margin-top:10px">
+          Ada dua kredensial dengan tugas berbeda. Token JWT membuktikan siapa
+          kamu; API key menentukan kuota mana yang terpakai dan mencatat
+          pemakaiannya. <strong>Endpoint data menuntut dua-duanya sekaligus</strong>,
+          dan API key itu harus milik akun yang sedang masuk.
+        </p>
+
+        <div class="grid grid--2" style="margin-top:18px">
+          <div>
+            <p class="eyebrow">Token JWT</p>
+            <ul class="ciri">
+              <li>Diperoleh dari <code class="inline">/auth/register</code> atau <code class="inline">/auth/login</code>.</li>
+              <li>Dikirim sebagai <code class="inline">Authorization: Bearer &lt;token&gt;</code>.</li>
+              <li>Umurnya diatur <code class="inline">JWT_EXPIRES</code> di <code class="inline">.env</code>, bawaannya 3600 detik.</li>
+              <li>Juga dikirim sebagai cookie httpOnly bernama <code class="inline">token</code> — itulah yang dipakai dashboard.</li>
+              <li>Tidak bisa dicabut; ia berhenti berlaku dengan sendirinya.</li>
+            </ul>
+          </div>
+          <div>
+            <p class="eyebrow">API key</p>
+            <ul class="ciri">
+              <li>Dibuat lewat <code class="inline">POST /keys</code> setelah masuk.</li>
+              <li>Dikirim sebagai <code class="inline">X-API-Key: krl_live_...</code>.</li>
+              <li>Berlaku sampai dicabut, dan pencabutan berlaku seketika.</li>
+              <li>Nilai utuhnya hanya muncul sekali; basis data hanya menyimpan hash-nya.</li>
+              <li>Maksimal 10 key aktif per akun.</li>
+            </ul>
+          </div>
         </div>
-      <% }) %>
-    </div>
-  </section>
 
-  <section class="panel">
-    <h2>Endpoint akun</h2>
-    <p class="muted small" style="margin-top:8px; margin-bottom:16px">Perlu token JWT, kecuali daftar dan masuk.</p>
-    <div class="endpoints">
-      <% accountEndpoints.forEach((e) => { %>
-        <div class="endpoint">
-          <span class="method <%= e.method === 'GET' ? '' : 'method--post' %>"><%= e.method %></span>
-          <span class="endpoint__path"><%= e.path %></span>
-          <span class="endpoint__what"><%= e.what %></span>
+        <p class="eyebrow ep__label">Ketiga penolakan yang mungkin kamu temui</p>
+        <table class="params">
+          <thead><tr><th>Keadaan</th><th>Balasan</th></tr></thead>
+          <tbody>
+            <tr><td>Token tidak ada atau kedaluwarsa</td><td><code class="inline">401 unauthorized</code> — "Silakan masuk terlebih dahulu."</td></tr>
+            <tr><td>Token sah, API key tidak dikirim</td><td><code class="inline">401 unauthorized</code> — "API key wajib disertakan pada header X-API-Key."</td></tr>
+            <tr><td>Keduanya sah tetapi key milik akun lain</td><td><code class="inline">403 forbidden</code> — "API key ini bukan milik akun yang sedang masuk."</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- 4 ------------------------------------------------------------- -->
+      <section class="panel docs__section" id="kuota">
+        <h2>Kuota &amp; batas</h2>
+        <p class="muted small" style="margin-top:10px">
+          Kuota berjalan per API key, bukan per akun, dan dihitung ulang setiap
+          tengah malam waktu Jakarta. Setiap balasan endpoint data membawa sisa
+          kuotanya.
+        </p>
+
+        <pre class="code" style="margin-top:16px">X-RateLimit-Limit: 1000        <b># jatah harian paketmu</b>
+X-RateLimit-Remaining: 987     <b># sisa hari ini</b>
+X-RateLimit-Reset: 2026-08-26T17:00:00.000Z   <b># kapan kuota pulih (UTC)</b></pre>
+
+        <table class="params" style="margin-top:18px">
+          <thead>
+            <tr><th>Paket</th><th>Kuota harian</th><th>Batas per menit</th><th>Harga</th></tr>
+          </thead>
+          <tbody>
+            <% plans.forEach((p) => { %>
+              <tr>
+                <td><code class="inline"><%= p.code %></code> <%= p.name %></td>
+                <td><%= p.daily_quota.toLocaleString('id-ID') %> permintaan</td>
+                <td><%= p.rate_limit_per_minute.toLocaleString('id-ID') %></td>
+                <td><%= p.price_idr === 0 ? 'gratis' : 'Rp' + p.price_idr.toLocaleString('id-ID') + '/bulan' %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+
+        <p class="small muted" style="margin-top:14px">
+          Kuota habis dijawab <code class="inline">429 quota_exceeded</code>, dan
+          rincian balasannya menyebutkan kapan kuota pulih. Permintaan yang ditolak
+          karena kuota tetap tercatat di riwayat pemakaian.
+        </p>
+      </section>
+
+      <!-- 5 ------------------------------------------------------------- -->
+      <section class="docs__section" id="data">
+        <div class="panel">
+          <div class="panel__head">
+            <h2>Endpoint data</h2>
+            <span class="small muted">butuh token JWT + API key</span>
+          </div>
+          <p class="muted small">
+            Semuanya berada di bawah <code class="inline">/v1</code>, membalas JSON
+            dengan bentuk <code class="inline">{ data, meta }</code>, dan memakai
+            kode stasiun — bukan nama stasiun.
+          </p>
         </div>
-      <% }) %>
-    </div>
-  </section>
 
-  <section class="panel">
-    <div class="panel__head">
-      <h2>Contoh: cari rute dan tarifnya</h2>
-      <span class="chip">Endpoint andalan</span>
-    </div>
-    <p class="muted small" style="margin-bottom:16px">
-      Rute dicari dengan algoritma Dijkstra di atas graf jaringan. Yang
-      diminimalkan adalah waktu tempuh, termasuk waktu pindah lin — sehingga
-      rute yang lebih jauh bisa saja terpilih bila lebih cepat.
-    </p>
-    <pre class="code">curl -X POST <%= appUrl %>/v1/route \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "X-API-Key: krl_live_..." \
-  -H "Content-Type: application/json" \
-  -d '{"from":"BOO","to":"THB","day_type":"weekday"}'</pre>
+        <% dataEndpoints.forEach((e) => { %>
+          <%- include('partials/endpoint', { e, authLabels }) %>
+        <% }) %>
+      </section>
 
-    <pre class="code" style="margin-top:12px"><%= contohRute %></pre>
-  </section>
-
-  <section class="panel">
-    <h2>Kode stasiun</h2>
-    <p class="muted small" style="margin-top:8px; margin-bottom:16px">
-      Semua endpoint memakai kode stasiun, bukan nama. Daftar lengkap ada di
-      <code class="inline">GET /v1/stations</code>.
-    </p>
-    <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap:7px">
-      <% interchanges.forEach((s) => { %>
-        <div style="display:flex; gap:9px; align-items:baseline; font-size:13px">
-          <code class="inline" style="font-weight:700"><%= s.code %></code>
-          <span><%= s.name %></span>
+      <!-- 6 ------------------------------------------------------------- -->
+      <section class="docs__section" id="akun">
+        <div class="panel">
+          <div class="panel__head">
+            <h2>Endpoint akun</h2>
+            <span class="small muted">publik atau cukup token JWT</span>
+          </div>
+          <p class="muted small">
+            Endpoint untuk mendapatkan token, mengelola API key, dan melihat
+            pemakaian. Tidak satu pun menuntut API key — kalau menuntut, kamu tidak
+            akan pernah bisa membuat key yang pertama.
+          </p>
         </div>
-      <% }) %>
-    </div>
-    <p class="small muted" style="margin-top:14px">
-      Yang ditampilkan di atas adalah stasiun transit — titik tempat berpindah lin.
-    </p>
-  </section>
 
-  <section class="panel">
-    <h2>Kode error</h2>
-    <div class="endpoints" style="margin-top:14px">
-      <% errorCodes.forEach((e) => { %>
-        <div class="endpoint">
-          <span class="method" style="background: var(--stop)"><%= e.status %></span>
-          <span class="endpoint__path"><%= e.code %></span>
-          <span class="endpoint__what"><%= e.what %></span>
+        <% accountEndpoints.forEach((e) => { %>
+          <%- include('partials/endpoint', { e, authLabels }) %>
+        <% }) %>
+      </section>
+
+      <!-- 7 ------------------------------------------------------------- -->
+      <section class="panel docs__section" id="error">
+        <h2>Kode error</h2>
+        <p class="muted small" style="margin-top:10px">
+          Semua kegagalan memakai bentuk yang sama, sehingga penanganannya bisa
+          ditulis satu kali saja. <code class="inline">details</code> hanya muncul
+          bila ada yang perlu dirinci.
+        </p>
+
+        <pre class="code" style="margin-top:16px"><%= contohError %></pre>
+
+        <div class="endpoints" style="margin-top:18px">
+          <% errorCodes.forEach((e) => { %>
+            <div class="endpoint">
+              <span class="method" style="background: var(--stop)"><%= e.status %></span>
+              <span class="endpoint__path"><%= e.code %></span>
+              <span class="endpoint__what"><%= e.what %></span>
+            </div>
+          <% }) %>
         </div>
-      <% }) %>
+      </section>
+
+      <!-- 8 ------------------------------------------------------------- -->
+      <section class="panel docs__section" id="kode">
+        <h2>Kode stasiun &amp; lin</h2>
+        <p class="muted small" style="margin-top:8px">
+          Setiap endpoint memakai kode, bukan nama. Daftar lengkap 74 stasiun ada
+          di <code class="inline">GET /v1/stations</code>; di bawah ini keenam lin
+          dan stasiun-stasiun tempat berpindah antar lin.
+        </p>
+
+        <p class="eyebrow ep__label">Lin</p>
+        <table class="params">
+          <thead><tr><th>Kode</th><th>Nama</th><th>Lintasan</th><th>Stasiun</th></tr></thead>
+          <tbody>
+            <% lines.forEach((l) => { %>
+              <tr>
+                <td><code class="inline"><%= l.code %></code></td>
+                <td><%= l.name %></td>
+                <td class="muted"><%= l.description %></td>
+                <td><%= l.station_count %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+
+        <p class="eyebrow ep__label">Stasiun transit</p>
+        <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap:7px">
+          <% interchanges.forEach((s) => { %>
+            <div style="display:flex; gap:9px; align-items:baseline; font-size:13px">
+              <code class="inline" style="font-weight:700"><%= s.code %></code>
+              <span><%= s.name %></span>
+            </div>
+          <% }) %>
+        </div>
+      </section>
+
     </div>
-    <pre class="code" style="margin-top:16px">{
-  "error": {
-    "code": "quota_exceeded",
-    "message": "Kuota harian paket Free sudah habis.",
-    "details": { "limit": 1000, "used": 1000, "reset_at": "..." }
-  }
-}</pre>
-  </section>
+  </div>
 
 </main>
+
+<script>
+  // Menandai bagian yang sedang dibaca pada daftar isi. Kalau JavaScript mati,
+  // daftar isinya tetap berfungsi sebagai tautan anchor biasa.
+  (function () {
+    var tautan = document.querySelectorAll('.docs__list > li > a');
+    var bagian = [];
+    tautan.forEach(function (a) {
+      var target = document.querySelector(a.getAttribute('href'));
+      if (target) bagian.push({ a: a, el: target });
+    });
+    if (!bagian.length || !('IntersectionObserver' in window)) return;
+
+    var pengamat = new IntersectionObserver(function (entri) {
+      entri.forEach(function (e) {
+        var cocok = bagian.find(function (b) { return b.el === e.target; });
+        if (cocok && e.isIntersecting) {
+          tautan.forEach(function (a) { a.classList.remove('is-active'); });
+          cocok.a.classList.add('is-active');
+        }
+      });
+    }, { rootMargin: '0px 0px -75% 0px' });
+
+    bagian.forEach(function (b) { pengamat.observe(b.el); });
+  }());
+</script>
+
 <%- include('partials/footer') %>

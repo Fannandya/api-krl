@@ -659,3 +659,181 @@ code.inline {
   .endpoint { grid-template-columns: 56px 1fr; }
   .endpoint__what { grid-column: 1 / -1; }
 }
+
+/* --- Halaman dokumentasi ------------------------------------------------- */
+
+.docs {
+  display: grid;
+  grid-template-columns: 208px minmax(0, 1fr);
+  gap: 32px;
+  align-items: start;
+}
+
+.docs__toc { position: sticky; top: 24px; }
+
+.docs__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 13.5px;
+}
+
+.docs__list > li + li { margin-top: 10px; }
+
+.docs__list a {
+  display: block;
+  padding: 3px 0 3px 11px;
+  border-left: 2px solid var(--rail);
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+
+.docs__list a:hover { color: var(--ink); border-left-color: var(--ink); }
+
+.docs__list a.is-active {
+  color: var(--ink);
+  font-weight: 600;
+  border-left-color: var(--signal);
+}
+
+.docs__sub {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0 0 0 11px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+.docs__sub a { border-left-width: 1px; padding: 2px 0 2px 9px; }
+
+.docs__section { scroll-margin-top: 24px; }
+.docs__body > section.docs__section > * + * { margin-top: 16px; }
+
+/* Satu blok endpoint ------------------------------------------------------ */
+
+.ep {
+  background: var(--surface);
+  border: var(--line);
+  border-radius: var(--radius);
+  padding: 20px 24px 24px;
+  scroll-margin-top: 24px;
+}
+
+.ep__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ep__path {
+  font-family: var(--font-mono);
+  font-size: 14.5px;
+  font-weight: 600;
+}
+
+.ep__auth {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border: var(--line);
+  border-radius: 999px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.ep__what { margin-top: 10px; max-width: 68ch; }
+.ep__note { margin-top: 12px; max-width: 68ch; }
+.ep__label { margin: 20px 0 8px; }
+
+.method--del { background: var(--stop); }
+
+/* Tabel parameter --------------------------------------------------------- */
+
+.params {
+  width: 100%;
+  margin-top: 16px;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  display: block;
+  overflow-x: auto;
+}
+
+.params thead th {
+  text-align: left;
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  font-weight: 600;
+  padding: 0 14px 8px 0;
+  border-bottom: var(--line);
+  white-space: nowrap;
+}
+
+.params td {
+  padding: 9px 14px 9px 0;
+  border-bottom: 1px solid var(--surface-sunk);
+  vertical-align: top;
+}
+
+.params tbody tr:last-child td { border-bottom: 0; }
+
+.params__where {
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.akses__rute {
+  display: inline-block;
+  margin: 0 5px 5px 0;
+  font-size: 12px;
+}
+
+/* Daftar bernomor pada bagian mulai cepat --------------------------------- */
+
+.steps {
+  margin: 18px 0 0;
+  padding-left: 22px;
+  font-size: 14.5px;
+}
+
+.steps > li + li { margin-top: 18px; }
+.steps .code { margin-top: 10px; }
+
+.ciri {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  font-size: 13.5px;
+  color: var(--ink-soft);
+}
+
+.ciri li + li { margin-top: 6px; }
+
+@media (max-width: 900px) {
+  .docs { grid-template-columns: 1fr; gap: 20px; }
+
+  .docs__toc {
+    position: static;
+    border-bottom: var(--line);
+    padding-bottom: 14px;
+  }
+
+  .docs__list {
+    display: flex;
+    gap: 16px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    scrollbar-width: thin;
+  }
+
+  .docs__list > li + li { margin-top: 0; }
+  .docs__list a { white-space: nowrap; border-left: 0; padding-left: 0; }
+  .docs__list a.is-active { border-bottom: 2px solid var(--signal); }
+  .docs__sub { display: none; }
+
+  .ep { padding: 18px 16px 20px; }
+}

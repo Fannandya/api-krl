@@ -1,0 +1,44 @@
+<%
+// Satu blok referensi endpoint. Menerima:
+//   e           satu objek dari src/docs/apiReference.js
+//   authLabels  peta AUTH dari modul yang sama
+const kelasMetode = e.method === 'POST' ? 'method--post'
+  : e.method === 'DELETE' ? 'method--del' : '';
+%>
+<article class="ep" id="ep-<%= e.id %>">
+  <div class="ep__head">
+    <span class="method <%= kelasMetode %>"><%= e.method %></span>
+    <code class="ep__path"><%= e.path %></code>
+    <span class="ep__auth" title="<%= authLabels[e.auth].what %>"><%= authLabels[e.auth].label %></span>
+  </div>
+
+  <p class="small muted ep__what"><%= e.what %></p>
+
+  <% if (e.params.length > 0) { %>
+    <table class="params">
+      <thead>
+        <tr><th>Parameter</th><th>Wajib</th><th>Keterangan</th><th>Bawaan</th></tr>
+      </thead>
+      <tbody>
+        <% e.params.forEach((p) => { %>
+          <tr>
+            <td><code class="inline"><%= p.name %></code><% if (p.di) { %> <span class="params__where"><%= p.di %></span><% } %></td>
+            <td><%= p.required ? 'ya' : '—' %></td>
+            <td><%= p.what %></td>
+            <td class="muted"><%= p.bawaan || '—' %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  <% } %>
+
+  <p class="eyebrow ep__label">Panggilan</p>
+  <pre class="code"><%= e.contoh %></pre>
+
+  <p class="eyebrow ep__label">Balasan</p>
+  <pre class="code"><%= e.balasan %></pre>
+
+  <% if (e.catatan) { %>
+    <p class="small muted ep__note"><%= e.catatan %></p>
+  <% } %>
+</article>

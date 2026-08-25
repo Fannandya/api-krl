@@ -1,125 +1,151 @@
 # KRL Data API
 
-SaaS penyedia data jaringan KRL Commuter Line Jabodetabek. Pihak lain mendaftar,
-membuat API key, lalu mengambil data stasiun, lin, jadwal, rute, dan tarif
-lewat HTTP dengan kuota harian yang tercatat.
+API buat data KRL Commuter Line Jabodetabek. Orang daftar, login, bikin API key,
+terus narik data stasiun, lin, jadwal, rute, sama tarif lewat HTTP. Tiap key
+punya kuota harian dan semua pemakaiannya kecatat.
 
-> **Data pada layanan ini adalah data referensi terkurasi untuk keperluan
-> akademik**, bukan data operasional resmi KAI Commuter. Jangan dipakai untuk
-> perencanaan perjalanan sungguhan.
+> Datanya bikinan sendiri buat keperluan kuliah — mendekati kondisi asli, tapi
+> **bukan data resmi KAI Commuter**. Jangan dipakai buat ngejar kereta beneran ya.
 
-## Yang membuatnya bukan sekadar CRUD
+## Yang bikin ini bukan CRUD biasa
 
-- **`POST /v1/route`** mencari rute tercepat dengan Dijkstra di atas graf
-  jaringan. Simpulnya adalah pasangan *(stasiun, lin)*, bukan stasiun saja,
-  sehingga waktu pindah lin ikut diperhitungkan.
-- **Tarif dihitung dari jarak total perjalanan**, sesuai cara KRL menagih
-  (sekali tap masuk, sekali tap keluar), dan aturannya dibaca dari tabel
-  `fare_rules` — bukan angka di dalam kode. Lin bertarif sendiri seperti KA
-  Bandara ditagih terpisah.
+Tiga bagian yang paling banyak makan waktu:
+
+- **`POST /v1/route`** nyari rute tercepat pakai Dijkstra di atas graf jaringan.
+  Simpulnya bukan stasiun doang, tapi pasangan *(stasiun, lin)* — jadi waktu
+  pindah lin ikut kehitung. Efeknya: rute yang lebih jauh bisa menang kalau
+  ternyata lebih cepat, persis kayak di dunia nyata.
+- **Tarif dihitung dari jarak total perjalanan**, bukan dijumlah per lin. Itu
+  cara KRL nagih: sekali tap masuk, sekali tap keluar. Aturannya dibaca dari
+  tabel `fare_rules`, bukan angka yang ditanam di kode, jadi kalau tarifnya naik
+  tinggal update satu baris SQL. Lin yang tarifnya sendiri kayak KA Bandara
+  ditagih terpisah.
 - **Jadwal disimpan sebagai pola operasi**, bukan puluhan ribu baris jam
-  keberangkatan. Jam keberangkatan dibangkitkan saat permintaan datang.
+  keberangkatan. Jamnya dibangkitkan pas ada permintaan masuk. Hemat banget di
+  basis data, dan nambah lin baru cuma perlu beberapa baris pola.
 
-## Dua jalur autentikasi
+## Autentikasi: butuh dua-duanya
+
+Ada dua kredensial dan tugasnya beda:
 
 | | Token JWT | API key |
 |---|---|---|
-| Untuk | manusia lewat peramban | program |
-| Endpoint | `/auth/*`, `/keys/*`, dashboard | `/v1/*` |
-| Umur | 1 jam | sampai dicabut |
-| Kena kuota | tidak | ya |
+| Dapetnya dari | `/auth/register` atau `/auth/login` | `POST /keys` (harus login dulu) |
+| Dikirim lewat | `Authorization: Bearer <token>` | `X-API-Key: krl_live_...` |
+| Gunanya | mbuktiin kamu siapa | nentuin kuota siapa yang kepakai |
+| Umurnya | `JWT_EXPIRES` di `.env`, default 3600 detik | sampai dicabut |
+| Kena kuota | nggak | iya |
 
-## Menjalankan di komputer sendiri
+Aturan mainnya:
+
+- **`/v1/*` (semua endpoint data) minta dua-duanya sekaligus.** Kurang satu,
+  ditolak 401. Dan API key-nya harus punya akun yang lagi login — pakai key
+  orang lain dijawab 403.
+- **`/keys/*` dan `/auth/me` cukup token.** Ini penting: kalau `/keys` ikut minta
+  API key, user baru nggak akan pernah bisa bikin key pertamanya. Ayam sama
+  telur.
+- **Yang kebuka tanpa kredensial cuma** `/auth/register`, `/auth/login`,
+  `/health`, sama halaman web (`/`, `/docs`, `/login`, `/register`).
+
+Penjelasan lengkapnya, termasuk tiap endpoint sama contoh balasannya, ada di
+halaman `/docs` pas aplikasinya jalan.
+
+## Jalanin di laptop sendiri
 
 ```bash
 npm install
-cp .env.example .env      # isi DATABASE_URL dan JWT_SECRET
-npm run db:start          # nyalakan Postgres lokal (dibuat otomatis)
-npm run migrate           # buat tabel dan isi 287 baris data awal
-npm test                  # 73 pengujian
+cp .env.example .env      # isi DATABASE_URL sama JWT_SECRET
+npm run db:start          # nyalain Postgres lokal (dibikinin otomatis)
+npm run migrate           # bikin tabel + isi 287 baris data awal
+npm test                  # 76 pengujian
 npm run dev               # http://localhost:3000
 ```
 
-Sesudah itu, tiap kali mau menjalankan lagi cukup:
+Habis itu, tiap mau jalanin lagi cukup:
 
 ```bash
 npm run db:start && npm run dev
 ```
 
-`npm run db:start` menyiapkan Postgres di `~/.local/share/krl-pg` pada porta
-55432 — terpisah dari service `postgresql@18` sistem, dan bertahan melewati
-restart. Jalankan `npm run db:status` untuk memeriksa keadaannya.
+`npm run db:start` nyiapin Postgres sendiri di `~/.local/share/krl-pg` porta
+55432. Kepisah dari service `postgresql@18` bawaan sistem, jadi nggak tabrakan,
+dan tetap hidup walau laptop di-restart. Cek keadaannya pakai `npm run db:status`.
 
-`DATABASE_URL` bisa diarahkan ke Postgres lokal maupun ke Supabase. Untuk
-Supabase, pakai **connection string transaction pooler (porta 6543)**. Jangan
-mengarahkannya ke Supabase lalu menjalankan `npm test` — `schema.sql` diawali
-`DROP TABLE` dan pengujian akan menghapus isi basis data produksi.
+`DATABASE_URL` bisa diarahin ke Postgres lokal atau ke Supabase. Kalau Supabase,
+pakai **connection string transaction pooler (porta 6543)**, bukan direct
+connection.
 
-### Row Level Security
+> **Awas.** Jangan arahin `DATABASE_URL` ke Supabase terus jalanin `npm test`.
+> `schema.sql` diawali `DROP TABLE`, jadi pengujiannya bakal ngosongin basis data
+> produksimu.
 
-`schema.sql` menyalakan RLS pada kesembilan tabel **tanpa satu pun policy**.
-Ini bukan kelalaian — itu memang tujuannya.
+### Kenapa RLS nyala tapi nggak ada policy-nya
 
-Supabase menyajikan setiap tabel di skema `public` lewat PostgREST, dan anon
-key proyek bersifat publik. Tanpa RLS, siapa pun yang memegangnya bisa
-membaca `users` dan `api_keys` langsung dari internet, melewati seluruh
-pemeriksaan API key dan kuota di aplikasi ini.
+`schema.sql` nyalain Row Level Security di kesembilan tabel **tanpa satu pun
+policy**. Ini disengaja, bukan lupa.
 
-Dengan RLS menyala tanpa policy, peran `anon` dan `authenticated` tidak
-memperoleh baris apa pun, sedangkan aplikasi tetap berjalan normal karena
-terhubung sebagai pemilik tabel — dan pemilik tabel melewati RLS. Pada Postgres
-lokal tanpa PostgREST, baris-baris itu tidak berpengaruh apa-apa.
+Supabase nyajiin tiap tabel di skema `public` lewat PostgREST, dan anon key-nya
+sifatnya publik. Tanpa RLS, siapa pun yang megang anon key bisa baca tabel
+`users` sama `api_keys` langsung dari internet — lewat semua pemeriksaan API key
+dan kuota yang capek-capek dibikin di aplikasi ini.
+
+Begitu RLS nyala tanpa policy, peran `anon` sama `authenticated` nggak dapat baris
+satu pun. Aplikasinya sendiri tetap normal karena nyambung sebagai pemilik tabel,
+dan pemilik tabel emang dilewatin RLS. Di Postgres lokal yang nggak punya
+PostgREST, baris-baris itu nggak ngefek apa-apa.
 
 ## Deploy ke Vercel
 
-1. Dorong repositori ini ke GitHub.
-2. Impor sebagai project baru di Vercel.
-3. Isi environment variable: `DATABASE_URL`, `JWT_SECRET`, `NODE_ENV=production`,
-   `APP_URL`.
-4. Jalankan `npm run migrate` sekali dengan `DATABASE_URL` mengarah ke Supabase.
+1. Push repo ini ke GitHub.
+2. Import sebagai project baru di Vercel.
+3. Isi environment variable: `DATABASE_URL`, `JWT_SECRET`, `JWT_EXPIRES`,
+   `NODE_ENV=production`, `APP_URL`.
+4. Jalanin `npm run migrate` sekali dengan `DATABASE_URL` yang nunjuk ke Supabase.
 
-`vercel.json` sudah memuat `includeFiles: "src/views/**"`. Baris itu wajib —
-tanpanya templat EJS tidak ikut terbawa ke dalam bundel fungsi dan dashboard
-menjawab 500 di produksi meskipun normal di komputer sendiri.
+`vercel.json` udah ada `includeFiles: "src/views/**"`. Baris itu wajib —
+tanpa itu templat EJS nggak keikut ke bundel fungsi, dan dashboard bakal 500 di
+produksi padahal di laptop aman-aman aja. Sempat kejadian, makanya ditulis.
 
 ## Perintah
 
-| Perintah | Kegunaan |
-|----------|----------|
-| `npm run db:start` | nyalakan Postgres lokal |
-| `npm run db:stop` | matikan Postgres lokal |
-| `npm run db:status` | periksa keadaan Postgres lokal |
-| `npm run dev` | jalankan server di porta 3000 |
-| `npm run migrate` | bangun ulang skema dan isi data awal |
-| `npm test` | seluruh pengujian (73 kasus) |
-| `npm run test:unit` | hanya pengujian unit, tanpa basis data |
-| `npm run docs` | render ulang diagram `.mmd` menjadi PNG |
+| Perintah | Gunanya |
+|----------|---------|
+| `npm run db:start` | nyalain Postgres lokal |
+| `npm run db:stop` | matiin Postgres lokal |
+| `npm run db:status` | cek Postgres lokal lagi hidup apa nggak |
+| `npm run dev` | jalanin server di porta 3000 |
+| `npm run migrate` | bangun ulang skema + isi data awal |
+| `npm test` | semua pengujian (76 kasus) |
+| `npm run test:unit` | pengujian unit doang, nggak perlu basis data |
+| `npm run docs` | render ulang diagram `.mmd` jadi PNG |
 
-## Struktur
+## Isi foldernya
 
 ```
 api/index.js        titik masuk Vercel
 src/config/         env, koneksi Postgres, zona waktu kuota
 src/controllers/    handler HTTP per sumber daya
 src/models/         akses data (SQL per domain)
-src/routes/         pemetaan path → controller
+src/routes/         pemetaan path -> controller
 src/views/          templat EJS
 src/services/       fungsi murni: graf, Dijkstra, tarif, jadwal
 src/middleware/     JWT, API key, kuota, pencatat, penangan galat
+src/docs/           isi halaman dokumentasi
 db/schema.sql       9 tabel
 db/seed.sql         287 baris data awal
-docs/               laporan dan diagram
+docs/               laporan sama diagram
 ```
 
-Strukturnya MVC: `models/` lapisan data, `views/` templat EJS, `controllers/`
-penanganan permintaan, dan `routes/` hanya memetakan path ke controller.
+Polanya MVC: `models/` lapisan data, `views/` templat, `controllers/` yang
+nanganin permintaan, `routes/` cuma metain path ke controller.
 
-Berkas di `src/services/` tidak menyentuh basis data sama sekali — menerima data
-biasa, mengembalikan hasil. Karena itu bagian paling rumit justru paling mudah
-diuji.
+Satu hal yang sengaja dijaga: berkas di `src/services/` **nggak nyentuh basis
+data sama sekali**. Dikasih data biasa, balikin hasil. Gara-gara itu bagian yang
+paling rumit (Dijkstra, hitungan tarif, pembangkit jadwal) justru paling gampang
+diuji — nggak perlu nyalain Postgres buat ngetes rute.
 
-## Dokumentasi
+## Baca lebih lanjut
 
-- Laporan lengkap beserta ERD, use case diagram, dan activity diagram:
+- Laporan lengkap + ERD, use case diagram, activity diagram:
   [`docs/laporan.md`](docs/laporan.md)
-- Dokumentasi API untuk pemakai: halaman `/docs` pada aplikasi yang berjalan
+- Dokumentasi API buat yang mau makai: halaman `/docs` pas aplikasinya jalan

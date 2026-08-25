@@ -3,6 +3,14 @@
 
 <main class="page stack">
 
+  <p>
+    <% if (user) { %>
+      <a class="btn btn--quiet" href="/dashboard">← Kembali ke dashboard</a>
+    <% } else { %>
+      <a class="btn btn--quiet" href="/">← Kembali ke beranda</a>
+    <% } %>
+  </p>
+
   <div>
     <p class="eyebrow">Referensi API · v1</p>
     <h1>Dokumentasi</h1>

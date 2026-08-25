@@ -1,9 +1,12 @@
 ---
-title: Activity Diagram — Permintaan Data dengan API Key
+title: Activity Diagram — Permintaan Data dengan JWT + API Key
 ---
 flowchart TD
     START([Klien memanggil<br/>GET /v1/route]) --> LOG1["Pasang pencatat pada event 'finish'"]
-    LOG1 --> ADA{"Header X-API-Key<br/>disertakan?"}
+    LOG1 --> JWT{"Token JWT sah<br/>dan belum kedaluwarsa?"}
+
+    JWT -- tidak --> E401J["401 unauthorized<br/>silakan masuk terlebih dahulu"]
+    JWT -- ya --> ADA{"Header X-API-Key<br/>disertakan?"}
 
     ADA -- tidak --> E401A["401 unauthorized"]
     ADA -- ya --> HASH["Hitung SHA-256 dari API key"]
@@ -15,7 +18,10 @@ flowchart TD
     KETEMU -- ya --> CABUT{"Sudah dicabut?"}
     CABUT -- ya --> E401C["401 unauthorized<br/>API key sudah dicabut"]
 
-    CABUT -- tidak --> HEADER["Pasang header<br/>X-RateLimit-Limit / Remaining / Reset"]
+    CABUT -- tidak --> MILIK{"API key milik akun<br/>yang sedang masuk?"}
+    MILIK -- tidak --> E403["403 forbidden<br/>API key bukan milik akun ini"]
+
+    MILIK -- ya --> HEADER["Pasang header<br/>X-RateLimit-Limit / Remaining / Reset"]
     HEADER --> KUOTA{"Pemakaian hari ini<br/>< kuota paket?"}
 
     KUOTA -- tidak --> E429["429 quota_exceeded<br/>sertakan reset_at"]
@@ -31,9 +37,11 @@ flowchart TD
     ADARUTE -- ya --> TARIF["Hitung tarif dari jarak total,<br/>lin bertarif khusus ditagih terpisah"]
     TARIF --> OK["200 OK dengan leg, transfer, dan tarif"]
 
+    E401J --> KIRIM
     E401A --> KIRIM
     E401B --> KIRIM
     E401C --> KIRIM
+    E403 --> KIRIM
     E429 --> KIRIM
     E422 --> KIRIM
     OK --> KIRIM["Respons dikirim ke klien"]
@@ -49,6 +57,6 @@ flowchart TD
     classDef data fill:#f2f4f7,stroke:#5a6473
     classDef sukses fill:#eff8f3,stroke:#1f7a4d
     class START,SELESAI mulai
-    class E401A,E401B,E401C,E429,E422 galat
+    class E401J,E401A,E401B,E401C,E403,E429,E422 galat
     class CARI,MUAT,TULIS data
     class OK sukses

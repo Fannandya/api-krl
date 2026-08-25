@@ -37,12 +37,19 @@ exports.registerPage = (req, res) => {
 
 /** Dashboard pemilik akun. */
 exports.dashboard = async (req, res) => {
-  const [rawKeys, plans, usage, topEndpoints] = await Promise.all([
+  const [rawKeys, plans, usage, topEndpoints, lines] = await Promise.all([
     listApiKeysForUser(req.user.id),
     listPlans(),
     getDailyUsageForUser({ userId: req.user.id, days: 7 }),
     getTopEndpointsForUser({ userId: req.user.id, limit: 5 }),
+    listLines(),
   ]);
+
+  // Penjelajah lin memakai dua bentuk data yang sama-sama sudah ada: listLines()
+  // menghasilkan persis apa yang dibalas GET /v1/lines — itulah yang ditampilkan
+  // sebagai JSON supaya bisa dicocokkan — sedangkan getLineByCode() menambahkan
+  // urutan stasiun yang dibutuhkan diagram jalurnya.
+  const lineDetails = await Promise.all(lines.map((l) => getLineByCode(l.code)));
 
   const keys = rawKeys.map((row) => ({
     id: row.id,
@@ -66,6 +73,8 @@ exports.dashboard = async (req, res) => {
     plans,
     usage,
     topEndpoints,
+    lines,
+    lineDetails,
   });
 };
 

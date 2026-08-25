@@ -50,6 +50,20 @@ Aturan mainnya:
 Penjelasan lengkapnya, termasuk tiap endpoint sama contoh balasannya, ada di
 halaman `/docs` pas aplikasinya jalan.
 
+## Ngintip isi datanya dari dashboard
+
+Di bawah dashboard ada penjelajah lin: enam chip warna-warni, klik satu, keluar
+ringkasan lin + diagram urutan stasiunnya + blok JSON-nya.
+
+JSON itu dicetak dari objek yang sama persis dengan yang dibalas `GET /v1/lines`,
+jadi kamu bisa nyocokin hasil Postman sama tampilan dashboard baris per baris —
+nggak usah main tebak-tebakan angka.
+
+Kenapa datanya dirender dari server dan bukan di-fetch? Soalnya dashboard nggak
+punya API key buat dikirim. Nilai utuh key cuma muncul sekali pas dibuat, sisanya
+tinggal hash di basis data. Jadi ya, aturan keamanan di satu tempat maksa cara
+bikin UI di tempat lain.
+
 ## Jalanin di laptop sendiri
 
 ```bash

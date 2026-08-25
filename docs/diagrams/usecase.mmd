@@ -6,6 +6,8 @@ flowchart LR
     DEVELOPER(["👤 Developer<br/>pemilik akun"])
     KLIEN(["🖥️ Aplikasi Klien<br/>aktor sistem"])
 
+    UC19(["Menjelajah lin di dashboard<br/>tanpa API key"])
+
     subgraph AKUN["Pengelolaan akun"]
         direction TB
         UC1(["Mendaftar akun"])
@@ -34,7 +36,9 @@ flowchart LR
 
     subgraph BERSAMA["Perilaku bersama sistem"]
         direction TB
+        UC20(["Memvalidasi sesi JWT"])
         UC14(["Memvalidasi API key"])
+        UC21(["Memeriksa kepemilikan API key"])
         UC15(["Memeriksa kuota harian"])
         UC16(["Mencatat pemakaian"])
         UC17(["Menolak: kuota habis"])
@@ -50,6 +54,7 @@ flowchart LR
     DEVELOPER --> UC6
     DEVELOPER --> UC7
     DEVELOPER --> UC8
+    DEVELOPER --> UC19
 
     KLIEN --> UC9
     KLIEN --> UC10
@@ -57,12 +62,14 @@ flowchart LR
     KLIEN --> UC12
     KLIEN --> UC13
 
-    UC9  -.->|include| UC14
-    UC10 -.->|include| UC14
-    UC11 -.->|include| UC14
-    UC12 -.->|include| UC14
-    UC13 -.->|include| UC14
-    UC14 -.->|include| UC15
+    UC9  -.->|include| UC20
+    UC10 -.->|include| UC20
+    UC11 -.->|include| UC20
+    UC12 -.->|include| UC20
+    UC13 -.->|include| UC20
+    UC20 -.->|include| UC14
+    UC14 -.->|include| UC21
+    UC21 -.->|include| UC15
     UC15 -.->|include| UC16
     UC17 -.->|extend| UC15
     UC12 -.->|include| UC13
@@ -71,5 +78,5 @@ flowchart LR
     classDef uc fill:#fff,stroke:#5a6473,color:#10141c
     classDef bersama fill:#eef1f6,stroke:#8b95a5,color:#10141c,stroke-dasharray: 4 3
     class PENGUNJUNG,DEVELOPER,KLIEN aktor
-    class UC1,UC2,UC3,UC4,UC5,UC6,UC7,UC8,UC9,UC10,UC11,UC12,UC13,UC18 uc
-    class UC14,UC15,UC16,UC17 bersama
+    class UC1,UC2,UC3,UC4,UC5,UC6,UC7,UC8,UC9,UC10,UC11,UC12,UC13,UC18,UC19 uc
+    class UC14,UC15,UC16,UC17,UC20,UC21 bersama

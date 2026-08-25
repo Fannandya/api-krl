@@ -128,6 +128,83 @@
     <% } %>
   </section>
 
+  <!--
+    Penjelajah lin. Datanya dirender dari server, bukan diambil lewat fetch:
+    endpoint /v1 menuntut API key, sedangkan nilai utuh API key hanya muncul
+    sekali saat dibuat — peramban tidak memilikinya.
+  -->
+  <section class="panel">
+    <div class="panel__head">
+      <h2>Lin dalam jaringan</h2>
+      <span class="small muted">isinya sama dengan balasan <code class="inline">GET /v1/lines</code></span>
+    </div>
+
+    <p class="muted small">
+      Pilih satu lin untuk melihat isinya, lalu cocokkan blok JSON di bawahnya
+      dengan hasil yang kamu terima di Postman.
+    </p>
+
+    <div class="linepick">
+      <% lines.forEach((l, i) => { %>
+        <button type="button"
+                class="chip chip--line linepick__chip <%= i === 0 ? 'is-active' : '' %>"
+                style="--chip-color: <%= l.color_hex %>"
+                data-lin="<%= l.code %>"
+                aria-pressed="<%= i === 0 ? 'true' : 'false' %>">
+          <%= l.code %>
+        </button>
+      <% }) %>
+    </div>
+
+    <% lineDetails.forEach((d, i) => {
+         const ringkas = lines[i];
+    %>
+      <div class="linebox" data-panel="<%= d.code %>" <%= i === 0 ? '' : 'hidden' %>>
+        <div class="panel__head" style="margin-bottom:10px">
+          <div>
+            <p class="eyebrow" style="margin-bottom:6px"><%= d.operator %></p>
+            <h3><%= d.name %></h3>
+          </div>
+          <span class="chip chip--line" style="--chip-color: <%= d.color_hex %>">
+            <%= d.code %> · <%= d.station_count %> stasiun · <%= d.length_km %> km · <%= d.travel_minutes %> menit
+          </span>
+        </div>
+
+        <p class="small muted"><%= d.description %></p>
+
+        <div class="diagram" style="margin-top:16px">
+          <div class="diagram__track">
+            <% d.stations.forEach((s) => { %>
+              <div class="diagram__stop" style="--stop-color: <%= d.color_hex %>">
+                <span class="diagram__dot <%= s.is_interchange ? 'diagram__dot--interchange' : '' %>"></span>
+                <div class="diagram__code"><%= s.code %></div>
+                <div class="diagram__name"><%= s.name %></div>
+                <div class="diagram__km"><%= s.distance_km_from_origin %> km</div>
+              </div>
+            <% }) %>
+          </div>
+        </div>
+
+        <p class="eyebrow" style="margin:22px 0 8px">Balasan /v1/lines untuk <%= d.code %></p>
+        <%
+          // Dicetak dari objek yang sama dengan yang dibalas endpoint-nya, bukan
+          // disalin dengan tangan — jadi tidak mungkin menyimpang darinya.
+        %>
+        <pre class="code"><%= JSON.stringify(ringkas, null, 2) %></pre>
+
+        <p class="eyebrow" style="margin:22px 0 8px">Ambil sendiri lewat API</p>
+        <pre class="code">curl "<%= appUrl %>/v1/lines" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "X-API-Key: $KEY"
+
+<b># satu lin beserta seluruh perhentiannya</b>
+curl "<%= appUrl %>/v1/lines/<%= d.code %>" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "X-API-Key: $KEY"</pre>
+      </div>
+    <% }) %>
+  </section>
+
 </main>
 
 <script>
@@ -204,6 +281,26 @@
       tampilkanError(hasil.error?.message || 'API key gagal dicabut.');
       tombol.disabled = false;
       tombol.textContent = semula;
+    });
+  });
+
+  // Peralihan antar lin. Seluruh lin sudah ikut terkirim bersama halaman, jadi
+  // pindah lin tidak memerlukan permintaan jaringan sama sekali. Kalau skrip ini
+  // tidak jalan, lin pertama tetap terlihat dan halamannya tetap terbaca.
+  const chipLin = document.querySelectorAll('.linepick__chip');
+  chipLin.forEach((chip) => {
+    chip.addEventListener('click', () => {
+      const kode = chip.dataset.lin;
+
+      chipLin.forEach((lain) => {
+        const aktif = lain === chip;
+        lain.classList.toggle('is-active', aktif);
+        lain.setAttribute('aria-pressed', String(aktif));
+      });
+
+      document.querySelectorAll('[data-panel]').forEach((panel) => {
+        panel.hidden = panel.dataset.panel !== kode;
+      });
     });
   });
 </script>

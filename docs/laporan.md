@@ -27,8 +27,9 @@ berbayar yang menjadi contoh pada tugas.
 ### 1.2 Tujuan
 
 1. Menyediakan data jaringan KRL dalam bentuk REST API yang terdokumentasi.
-2. Menerapkan dua lapis autentikasi yang berbeda peruntukan: JWT untuk manusia
-   yang mengelola akun, API key untuk program yang mengambil data.
+2. Menerapkan dua lapis autentikasi yang berbeda peruntukan — JWT membuktikan
+   siapa pemanggilnya, API key menentukan kuota siapa yang terpakai — dan
+   menuntut keduanya sekaligus pada setiap endpoint data.
 3. Menegakkan kuota pemakaian per paket langganan dan mencatat setiap permintaan.
 4. Menyediakan endpoint terhitung — pencarian rute dan perhitungan tarif — yang
    nilainya tidak sekadar menyalin isi tabel.
@@ -64,9 +65,12 @@ keberangkatan satu per satu — alasannya dijelaskan di bagian 3.3.
 | F-09 | Aplikasi klien dapat memperoleh jam keberangkatan dari sebuah stasiun | Aplikasi klien |
 | F-10 | Aplikasi klien dapat mencari rute tercepat antar dua stasiun | Aplikasi klien |
 | F-11 | Aplikasi klien dapat menghitung tarif antar dua stasiun | Aplikasi klien |
-| F-12 | Sistem menolak permintaan tanpa API key yang sah | Sistem |
+| F-12 | Sistem menolak permintaan data tanpa API key yang sah | Sistem |
 | F-13 | Sistem menolak permintaan yang melampaui kuota harian | Sistem |
 | F-14 | Sistem mencatat setiap permintaan beserta latensinya | Sistem |
+| F-15 | Sistem menuntut sesi yang masuk (token JWT) pada seluruh endpoint data | Sistem |
+| F-16 | Sistem menolak API key yang bukan milik akun yang sedang masuk | Sistem |
+| F-17 | Developer dapat menjelajah isi data lin langsung dari dashboard | Developer |
 
 ### 2.2 Kebutuhan non-fungsional
 
@@ -74,7 +78,7 @@ keberangkatan satu per satu — alasannya dijelaskan di bagian 3.3.
 |------|-----------|
 | N-01 | Kata sandi disimpan sebagai hash bcrypt, tidak pernah dalam bentuk asli |
 | N-02 | API key disimpan sebagai hash SHA-256; nilai aslinya hanya ditampilkan sekali |
-| N-03 | Token JWT berlaku satu jam dan dikirim lewat cookie httpOnly untuk peramban |
+| N-03 | Umur token JWT ditentukan `JWT_EXPIRES` (bawaan satu jam) dan dikirim lewat cookie httpOnly untuk peramban |
 | N-04 | Aplikasi berjalan sebagai satu fungsi serverless di Vercel |
 | N-05 | Basis data adalah PostgreSQL yang dilayani Supabase |
 | N-06 | Setiap balasan galat memakai bentuk JSON yang seragam |
@@ -88,21 +92,22 @@ keberangkatan satu per satu — alasannya dijelaskan di bagian 3.3.
 ### 3.1 Arsitektur
 
 ```
-Peramban (dashboard) ──JWT lewat cookie httpOnly──┐
-                                                  ├──► Aplikasi Express ──► PostgreSQL
-Aplikasi klien       ──API key: X-API-Key─────────┘    satu fungsi           (Supabase,
-(Postman, curl, dsb)                                   serverless             transaction
-                                                       di Vercel              pooler)
+Peramban (dashboard) ──JWT lewat cookie httpOnly──────────┐
+                                                          ├──► Aplikasi Express ──► PostgreSQL
+Aplikasi klien       ──JWT: Authorization: Bearer ────────┘    satu fungsi           (Supabase,
+(Postman, curl, dsb)   + API key: X-API-Key                    serverless             transaction
+                                                               di Vercel              pooler)
 ```
 
-Sistem sengaja memisahkan dua jalur autentikasi karena keduanya melayani pihak
-yang berbeda:
+Sistem memakai dua kredensial yang tugasnya berbeda, dan endpoint data menuntut
+keduanya sekaligus:
 
 | | Token JWT | API key |
 |---|---|---|
-| Dipakai oleh | manusia lewat peramban | program |
-| Umur | satu jam | sampai dicabut |
-| Untuk endpoint | `/auth/*`, `/keys/*`, halaman dashboard | `/v1/*` |
+| Dipakai oleh | manusia lewat peramban maupun program | program |
+| Membuktikan | siapa pemanggilnya | kuota siapa yang terpakai |
+| Umur | `JWT_EXPIRES` pada `.env`, bawaan satu jam | sampai dicabut |
+| Untuk endpoint | `/auth/me`, `/keys/*`, halaman dashboard, **dan** `/v1/*` | `/v1/*` |
 | Kena kuota | tidak | ya |
 | Tercatat di log | tidak | ya |
 | Cara dicabut | menunggu kedaluwarsa | dicabut kapan saja oleh pemiliknya |
@@ -111,6 +116,17 @@ Token berumur pendek karena manusia bisa masuk ulang dengan mudah. API key
 berumur panjang karena program tidak bisa. Perbedaan itulah yang menuntut
 mekanisme pencabutan pada key, dan yang membuat API key — bukan token — menjadi
 satuan penagihan kuota.
+
+Endpoint data menuntut dua-duanya karena keduanya menjawab pertanyaan yang
+berlainan: token menjawab "siapa yang memanggil", API key menjawab "kuota siapa
+yang dipotong". Sistem juga menolak kombinasi yang tidak konsisten — API key yang
+dipakai harus milik akun yang tokennya sedang dipegang, kalau tidak balasannya
+`403 forbidden`. Tanpa pemeriksaan itu, sebuah key yang bocor masih bisa dipakai
+bersama sesi akun mana pun dan kuotanya terhitung ke pemilik yang keliru.
+
+Pengelolaan API key sendiri (`/keys/*`) sengaja **tidak** menuntut API key. Kalau
+ia menuntut, pengguna baru tidak akan pernah bisa membuat key pertamanya — untuk
+meminta key ia harus sudah memegang key.
 
 ### 3.2 Entity Relationship Diagram
 
@@ -239,16 +255,33 @@ menjadi beban di jalur terpanas ini. Perlambatan itu berguna untuk kata sandi
 buatan manusia yang bisa ditebak, tetapi tidak diperlukan untuk key berisi 128
 bit acak.
 
-#### 3.5.3 Permintaan data dengan API key
+#### 3.5.3 Permintaan data dengan JWT dan API key
 
 ![Activity Diagram Permintaan API](diagrams/activity-api-request.png)
 
-Inilah alur yang paling sering dijalankan sistem. Tiga hal patut dicatat.
+Inilah alur yang paling sering dijalankan sistem. Seluruh pemeriksaannya dipasang
+terpusat satu kali di `src/routes/v1/index.js`, bukan diulang di tiap berkas
+route, sehingga berlaku untuk keenam sub-router `/v1` sekaligus:
+
+```js
+router.use(logApiRequest, requireJwt, requireApiKey, requireApiKeyOwner, enforceQuota);
+```
+
+Empat hal patut dicatat.
 
 **Pencatat dipasang paling awal.** Middleware pencatat hanya menitipkan
 pendengar pada event `finish`; isi catatannya baru dibaca setelah respons
 terkirim. Dengan urutan ini, permintaan yang ditolak karena kuota habis pun
 tetap tercatat — padahal ia tidak pernah sampai ke handler endpoint.
+
+**Gerbang JWT mendahului pemeriksaan API key.** Urutannya dipilih supaya
+pengunjung yang belum masuk memperoleh jawaban tentang sesinya ("Silakan masuk
+terlebih dahulu."), bukan jawaban tentang API key yang belum tentu ia punya.
+Konsekuensinya diterima secara sadar: permintaan yang tertahan di gerbang JWT
+belum sempat mengenali API key mana pun, sehingga ia tidak tercatat di
+`request_logs` — itulah sebabnya alur pencatatan di ujung diagram masih memakai
+percabangan "API key sempat dikenali?". Penolakan karena kuota habis tetap
+tercatat seperti sebelumnya, karena pada titik itu key-nya sudah dikenali.
 
 **Validasi API key dan hitungan kuota terjadi dalam satu kueri.** Menyatukan
 pencarian key, pengambilan kuota paket, dan penghitungan pemakaian hari ini
@@ -259,6 +292,13 @@ yang terasa besar di lingkungan serverless, tempat setiap koneksi berumur pendek
 setelah respons terkirim, dan kegagalannya hanya dilaporkan ke konsol.
 Permintaan yang sudah berhasil dilayani tidak pantas dianggap gagal hanya karena
 pencatatan bermasalah.
+
+**Kepemilikan key diperiksa terpisah dari keabsahannya.** `requireApiKey` hanya
+menjawab "key ini sah dan belum dicabut", sedangkan `requireApiKeyOwner` menjawab
+"key ini milik akun yang sedang masuk". Dipisah menjadi dua middleware supaya
+pemeriksaan keabsahan tetap bisa dipakai sendirian bila kelak dibutuhkan, dan
+supaya kedua penolakan bisa dibedakan pemanggil: `401` untuk kredensial yang
+tidak sah, `403` untuk kredensial sah yang tidak berhak.
 
 ---
 
@@ -298,18 +338,20 @@ ta-pws/
 │   │   └── time.js           batas hari waktu Jakarta untuk kuota
 │   ├── models/               network.js, users.js, apiKeys.js, logs.js
 │   ├── views/                home, login, register, dashboard, docs, error
+│   │   └── partials/         head, header, footer, endpoint
 │   ├── controllers/          station, line, schedule, route, fare, stats,
 │   │                         auth, key, dashboard
 │   ├── routes/               pemetaan path menuju controller
 │   │   ├── auth.js  keys.js  dashboard.js
 │   │   └── v1/               stations, lines, schedules, route, fare, stats
 │   ├── middleware/           jwtAuth, apiKeyAuth, quota, requestLogger, errorHandler
+│   ├── docs/                 isi halaman dokumentasi (apiReference.js)
 │   └── services/             graph, routeEngine, fareCalculator,
 │                             scheduleGenerator, apiKey, auth, networkCache
 ├── db/schema.sql             DDL sembilan tabel
 ├── db/seed.sql               data awal
 ├── scripts/db.sh             pengelola Postgres lokal
-├── tests/                    73 kasus uji
+├── tests/                    76 kasus uji
 └── docs/                     laporan dan diagram
 ```
 
@@ -449,8 +491,8 @@ Seluruh pengujian dijalankan dengan `npm test`.
 | `routeEngine.test.js` | graf jaringan dan Dijkstra, dengan jaringan fixture | 10 |
 | `auth.test.js` | pendaftaran, masuk, dan penanganan token | 9 |
 | `apiKeys.test.js` | daur hidup API key, pencabutan, kuota, pencatatan | 10 |
-| `dataEndpoints.test.js` | seluruh endpoint `/v1` dari ujung ke ujung | 23 |
-| **Total** | | **73** |
+| `dataEndpoints.test.js` | seluruh endpoint `/v1` dari ujung ke ujung, termasuk gerbang autentikasinya | 26 |
+| **Total** | | **76** |
 
 Tiga pengujian yang paling menjelaskan rancangan:
 
@@ -500,6 +542,7 @@ Environment variable yang harus diisi di Vercel:
 |------|-----|
 | `DATABASE_URL` | connection string transaction pooler Supabase |
 | `JWT_SECRET` | string acak minimal 32 karakter (`openssl rand -hex 32`) |
+| `JWT_EXPIRES` | umur token dalam detik; opsional, bawaan `3600` |
 | `NODE_ENV` | `production` |
 | `APP_URL` | URL produksi, dipakai pada contoh di halaman dokumentasi |
 
@@ -539,6 +582,37 @@ tarif: Rp6.000
 
 74 stasiun, 6 lin, 6 stasiun transit, 82 perhentian, tersebar di 14 kota dan
 kabupaten, dengan total panjang jalur 234,6 km.
+
+### 7.4 Antarmuka yang dihasilkan
+
+Selain REST API, sistem menghasilkan dua antarmuka yang keduanya dirender di
+sisi server dari sumber data yang sama dengan API-nya.
+
+**Halaman dokumentasi `/docs`.** Terbuka untuk umum dan berdiri sendiri: peta
+akses yang membedakan rute publik, rute berpagar JWT, dan rute yang menuntut JWT
+sekaligus API key; langkah pemakaian dari nol; serta referensi sembilan belas
+endpoint yang masing-masing memuat tabel parameter, contoh `curl`, dan contoh
+balasan. Isinya berasal dari `src/docs/apiReference.js`, sebuah modul data murni
+tanpa akses basis data — dipisahkan dari controller dengan alasan yang sama
+seperti `src/services/`: bagian yang panjang dan sering disunting lebih mudah
+diperiksa bila ia tidak bisa menimbulkan efek samping. Angka kuota pada halaman
+itu dibaca dari tabel `plans`, bukan ditulis tetap, sehingga tidak bisa menyimpang
+dari kuota yang sesungguhnya ditegakkan.
+
+**Penjelajah lin pada dashboard.** Enam chip berwarna sesuai identitas tiap lin;
+memilih satu menampilkan ringkasannya, diagram urutan stasiun, dan blok JSON.
+Tujuannya adalah verifikasi: JSON yang ditampilkan dicetak dari objek `listLines()`
+yang persis sama dengan yang dibalas `GET /v1/lines`, sehingga hasil di Postman
+dapat dicocokkan baris per baris dengan tampilan di dashboard, bukan dikira-kira.
+
+Bagian kedua ini juga menunjukkan satu konsekuensi rancangan yang tidak langsung
+terlihat. Setelah endpoint data menuntut API key, halaman dashboard **tidak bisa**
+memanggil `/v1/lines` dari peramban: nilai utuh API key hanya ditampilkan sekali
+saat dibuat dan sesudahnya basis data hanya memegang hash-nya, sehingga peramban
+tidak punya apa pun untuk dikirim pada header `X-API-Key`. Karena itu datanya
+dirender bersama halaman, dan pergantian lin tidak memerlukan permintaan jaringan
+sama sekali. Aturan keamanan yang dipilih di satu tempat ternyata menentukan cara
+antarmuka di tempat lain harus dibangun.
 
 ---
 
@@ -580,7 +654,10 @@ langsung.
 
 ## Lampiran A — Daftar endpoint
 
-### Memerlukan API key (`X-API-Key`)
+### Memerlukan token JWT **dan** API key (`Authorization: Bearer` + `X-API-Key`)
+
+API key yang disertakan harus milik akun yang tokennya sedang dipakai; bila tidak,
+balasannya `403 forbidden`.
 
 | Metode | Path | Keterangan |
 |--------|------|------------|
@@ -590,37 +667,44 @@ langsung.
 | GET | `/v1/lines/:code` | Detail lin dengan seluruh perhentian berurutan |
 | GET | `/v1/schedules` | Jam keberangkatan; wajib `station` |
 | POST | `/v1/route` | Rute tercepat antar stasiun beserta transfer dan tarif |
+| GET | `/v1/route` | Sama seperti di atas, parameternya lewat query string |
 | GET | `/v1/fare` | Tarif antar dua stasiun |
 | GET | `/v1/stats` | Ringkasan jaringan |
 
-### Memerlukan token JWT
+### Memerlukan token JWT saja
+
+Sengaja tanpa API key: di sinilah API key pertama dibuat.
 
 | Metode | Path | Keterangan |
 |--------|------|------------|
-| POST | `/auth/register` | Buat akun |
-| POST | `/auth/login` | Masuk |
-| POST | `/auth/logout` | Akhiri sesi |
 | GET | `/auth/me` | Profil akun |
 | GET | `/keys` | Daftar API key beserta pemakaiannya |
 | POST | `/keys` | Buat API key baru |
+| GET | `/keys/plans` | Daftar paket yang bisa dipilih |
+| GET | `/keys/usage` | Pemakaian harian seluruh key milik akun; `days` 1-30 |
 | GET | `/keys/:id/usage` | Riwayat lima puluh permintaan terakhir |
 | DELETE | `/keys/:id` | Cabut API key |
+| GET | `/dashboard` | Halaman dashboard; pengunjung anonim diarahkan ke `/login` |
 
 ### Terbuka
 
 | Metode | Path | Keterangan |
 |--------|------|------------|
+| POST | `/auth/register` | Buat akun; balasannya sudah memuat token |
+| POST | `/auth/login` | Masuk dan ambil token baru |
+| POST | `/auth/logout` | Akhiri sesi dan hapus cookie |
 | GET | `/health` | Pemeriksaan kesehatan layanan |
 | GET | `/` | Beranda |
 | GET | `/docs` | Dokumentasi API |
+| GET | `/login`, `/register` | Halaman masuk dan pendaftaran |
 
 ## Lampiran B — Kode error
 
 | HTTP | `code` | Penyebab |
 |------|--------|----------|
 | 400 | `bad_request` | Parameter kurang atau formatnya salah |
-| 401 | `unauthorized` | API key atau token tidak ada, salah, atau sudah dicabut |
-| 403 | `forbidden` | Melampaui batas sepuluh API key aktif |
+| 401 | `unauthorized` | Token atau API key tidak ada, salah, kedaluwarsa, atau sudah dicabut |
+| 403 | `forbidden` | API key bukan milik akun yang sedang masuk, atau melampaui batas sepuluh API key aktif |
 | 404 | `not_found` | Kode stasiun, lin, atau API key tidak ditemukan |
 | 409 | `conflict` | E-mail sudah terdaftar |
 | 422 | `unprocessable_entity` | Dua stasiun tidak terhubung dalam jaringan |
@@ -630,9 +714,9 @@ langsung.
 
 ```bash
 npm install
-cp .env.example .env        # isi DATABASE_URL dan JWT_SECRET
+cp .env.example .env        # isi DATABASE_URL dan JWT_SECRET; JWT_EXPIRES opsional
 npm run migrate             # buat tabel dan isi data awal
-npm test                    # 73 pengujian
+npm test                    # 76 pengujian
 npm run dev                 # http://localhost:3000
 npm run docs                # render ulang diagram menjadi PNG
 ```

@@ -13,33 +13,43 @@
     </p>
   </section>
 
-  <!-- Hero: diagram jalur sungguhan, dibaca langsung dari basis data. -->
-  <section class="panel">
-    <div class="panel__head">
-      <div>
-        <p class="eyebrow" style="margin-bottom:6px">Contoh isi data</p>
-        <h2><%= featuredLine.name %></h2>
-      </div>
-      <span class="chip chip--line" style="--chip-color: <%= featuredLine.color_hex %>">
-        <%= featuredLine.code %> · <%= featuredLine.length_km %> km · <%= featuredLine.travel_minutes %> menit
-      </span>
-    </div>
-
-    <div class="diagram">
-      <div class="diagram__track">
-        <% featuredLine.stations.forEach((s) => { %>
-          <div class="diagram__stop" style="--stop-color: <%= featuredLine.color_hex %>">
-            <span class="diagram__dot <%= s.is_interchange ? 'diagram__dot--interchange' : '' %>"></span>
-            <div class="diagram__code"><%= s.code %></div>
-            <div class="diagram__name"><%= s.name %></div>
-            <div class="diagram__km"><%= s.distance_km_from_origin %> km</div>
+  <!--
+    Hero: diagram jalur sungguhan, dibaca langsung dari basis data. Keenam lin
+    dirender sekaligus dan hanya satu yang terlihat; pemilihnya ada di panel
+    "Lin yang tersedia" di bawah halaman ini.
+  -->
+  <section class="panel" id="contoh-data">
+    <% lineDetails.forEach((d, i) => { %>
+      <div class="hero-lin" data-hero="<%= d.code %>" <%= i === 0 ? '' : 'hidden' %>>
+        <div class="panel__head">
+          <div>
+            <p class="eyebrow" style="margin-bottom:6px">Contoh isi data</p>
+            <h2><%= d.name %></h2>
           </div>
-        <% }) %>
+          <span class="chip chip--line" style="--chip-color: <%= d.color_hex %>">
+            <%= d.code %> · <%= d.length_km %> km · <%= d.travel_minutes %> menit
+          </span>
+        </div>
+
+        <div class="diagram">
+          <div class="diagram__track">
+            <% d.stations.forEach((s) => { %>
+              <div class="diagram__stop" style="--stop-color: <%= d.color_hex %>">
+                <span class="diagram__dot <%= s.is_interchange ? 'diagram__dot--interchange' : '' %>"></span>
+                <div class="diagram__code"><%= s.code %></div>
+                <div class="diagram__name"><%= s.name %></div>
+                <div class="diagram__km"><%= s.distance_km_from_origin %> km</div>
+              </div>
+            <% }) %>
+          </div>
+        </div>
       </div>
-    </div>
+    <% }) %>
+
     <p class="small muted" style="margin-top:14px">
       Bulatan hitam menandai stasiun transit — di situlah mesin pencari rute
-      memperhitungkan waktu pindah lin.
+      memperhitungkan waktu pindah lin. Ganti linnya lewat daftar
+      <a href="#lin-tersedia">Lin yang tersedia</a> di bawah.
     </p>
   </section>
 
@@ -88,21 +98,60 @@
       </p>
     </div>
 
-    <div class="panel">
+    <div class="panel" id="lin-tersedia">
       <h2>Lin yang tersedia</h2>
-      <div class="grid" style="gap:11px; margin-top:16px">
-        <% lines.forEach((l) => { %>
-          <div style="display:flex; align-items:baseline; gap:12px; flex-wrap:wrap">
+      <p class="muted small" style="margin-top:10px">
+        Klik salah satu untuk menampilkannya pada contoh isi data di atas.
+      </p>
+      <div class="linerows">
+        <% lines.forEach((l, i) => { %>
+          <button type="button"
+                  class="linerow <%= i === 0 ? 'is-active' : '' %>"
+                  data-lin="<%= l.code %>"
+                  aria-pressed="<%= i === 0 ? 'true' : 'false' %>">
             <span class="chip chip--line" style="--chip-color: <%= l.color_hex %>"><%= l.code %></span>
             <span style="font-weight:500"><%= l.name %></span>
-            <span class="small muted" style="margin-left:auto; font-family:var(--font-mono)">
+            <span class="small muted" style="font-family:var(--font-mono)">
               <%= l.station_count %> stasiun · <%= l.length_km %> km
             </span>
-          </div>
+          </button>
         <% }) %>
       </div>
     </div>
   </section>
 
 </main>
+
+<script>
+  // Mengganti lin yang tampil pada panel contoh isi data. Seluruh lin sudah ikut
+  // terkirim bersama halaman, jadi tidak ada permintaan jaringan di sini. Tanpa
+  // skrip ini lin pertama tetap tampil dan halaman tetap terbaca.
+  (function () {
+    var baris = document.querySelectorAll('.linerow');
+    var panel = document.getElementById('contoh-data');
+    if (!baris.length || !panel) return;
+
+    // Menggulir dengan animasi hanya bila pengguna tidak meminta gerak dikurangi.
+    var pelan = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    baris.forEach(function (tombol) {
+      tombol.addEventListener('click', function () {
+        var kode = tombol.dataset.lin;
+
+        baris.forEach(function (lain) {
+          var aktif = lain === tombol;
+          lain.classList.toggle('is-active', aktif);
+          lain.setAttribute('aria-pressed', String(aktif));
+        });
+
+        document.querySelectorAll('[data-hero]').forEach(function (blok) {
+          blok.hidden = blok.dataset.hero !== kode;
+        });
+
+        panel.scrollIntoView({ behavior: pelan ? 'auto' : 'smooth', block: 'start' });
+      });
+    });
+  }());
+</script>
+
 <%- include('partials/footer') %>

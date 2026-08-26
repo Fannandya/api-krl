@@ -1,14 +1,13 @@
 # KRL Data API
 ## Laporan Proyek — Software as a Service Penyedia Data Transportasi
 
-**Mata kuliah:** Pemrograman Web Lanjut
-**Nama:** _(isi nama)_
-**NIM:** _(isi NIM)_
+**Mata kuliah:** Pemrograman Web Servis
+**Nama:** Fannandya Sutan Sakti Pratama
+**NIM:** 20240140033
 **Tanggal:** 24 Agustus 2026
 **URL produksi:** _(isi setelah deploy, misalnya https://ta-pws.vercel.app)_
-**Repositori:** _(isi URL repositori)_
+**Repositori:** https://github.com/Fannandya/api-krl.git
 
----
 
 ## 1. Pendahuluan
 
@@ -46,7 +45,6 @@ Cakupan dibatasi pada enam lin: lima lin Commuter Line ditambah KA Bandara
 Soekarno-Hatta. Jadwal disimpan sebagai pola operasi, bukan sebagai baris jam
 keberangkatan satu per satu — alasannya dijelaskan di bagian 3.3.
 
----
 
 ## 2. Analisis Kebutuhan
 
@@ -71,6 +69,7 @@ keberangkatan satu per satu — alasannya dijelaskan di bagian 3.3.
 | F-15 | Sistem menuntut sesi yang masuk (token JWT) pada seluruh endpoint data | Sistem |
 | F-16 | Sistem menolak API key yang bukan milik akun yang sedang masuk | Sistem |
 | F-17 | Developer dapat menjelajah isi data lin langsung dari dashboard | Developer |
+| F-18 | Pengunjung dapat melihat isi data tiap lin dari beranda tanpa mendaftar | Pengunjung |
 
 ### 2.2 Kebutuhan non-fungsional
 
@@ -85,7 +84,6 @@ keberangkatan satu per satu — alasannya dijelaskan di bagian 3.3.
 | N-07 | Kuota harian berganti pada tengah malam waktu Jakarta, bukan waktu server |
 | N-08 | Tabel tidak boleh dapat dibaca langsung dari internet, melainkan hanya lewat endpoint yang disediakan |
 
----
 
 ## 3. Perancangan
 
@@ -300,7 +298,6 @@ pemeriksaan keabsahan tetap bisa dipakai sendirian bila kelak dibutuhkan, dan
 supaya kedua penolakan bisa dibedakan pemanggil: `401` untuk kredensial yang
 tidak sah, `403` untuk kredensial sah yang tidak berhak.
 
----
 
 ## 4. Implementasi
 
@@ -478,7 +475,6 @@ penghitungan di SQL dan pada nilai `reset_at` yang dikirim ke klien:
 Setiap balasan membawa header `X-RateLimit-Limit`, `X-RateLimit-Remaining`, dan
 `X-RateLimit-Reset`, sehingga klien tahu sisa jatahnya tanpa perlu menebak.
 
----
 
 ## 5. Pengujian
 
@@ -512,7 +508,6 @@ jumlah tarif tiap leg.
 Batas kuota diuji dengan menyisipkan paket khusus berkuota dua baris lewat SQL,
 sehingga penolakan 429 dapat dibuktikan tanpa perlu mengirim seribu permintaan.
 
----
 
 ## 6. Deployment
 
@@ -522,19 +517,27 @@ sana lewat `vercel.json`:
 
 ```json
 {
-  "functions": { "api/index.js": { "includeFiles": "src/views/**" } },
+  "functions": { "api/index.js": { "includeFiles": "{src/views/**,public/**}" } },
   "rewrites": [{ "source": "/(.*)", "destination": "/api" }]
 }
 ```
 
-Baris `includeFiles` wajib ada. Berkas templat EJS tidak ikut terbawa secara
-otomatis ke dalam bundel fungsi, dan tanpa baris itu dashboard akan menjawab 500
-di produksi meskipun berjalan normal di komputer sendiri.
+Baris `includeFiles` wajib ada, dan harus mencakup **kedua** pola ini. Berkas
+templat EJS dan berkas statis (`public/app.css`) sama-sama tidak ikut terbawa
+otomatis ke dalam bundel fungsi karena keduanya dibaca lewat jalur berbasis
+`__dirname` yang dibangun saat aplikasi berjalan
+(`app.set('views', ...)` dan `express.static(path.join(__dirname, '..',
+'public'))` di `src/app.js`) — bukan `require` statis yang bisa dilacak alat
+pemaket. Tanpa `src/views/**`, dashboard menjawab 500 di produksi; tanpa
+`public/**`, halamannya tetap hidup tetapi tanpa gaya sama sekali. Keduanya
+berjalan normal di komputer sendiri karena di sana berkasnya memang ada di
+disk, bukan di dalam bundel.
 
 Koneksi ke Supabase memakai **transaction pooler pada porta 6543**, bukan
-koneksi langsung pada porta 5432, dengan `max: 1` pada kolam koneksi. Setiap
-pemanggilan fungsi serverless membuka koneksinya sendiri; koneksi langsung akan
-menghabiskan jatah koneksi Supabase begitu lalu lintas naik.
+koneksi langsung pada porta 5432, dengan `max: 1` pada kolam koneksi
+(`src/config/database.js`). Setiap pemanggilan fungsi serverless membuka
+koneksinya sendiri; koneksi langsung akan menghabiskan jatah koneksi Supabase
+begitu lalu lintas naik.
 
 Environment variable yang harus diisi di Vercel:
 
@@ -546,7 +549,17 @@ Environment variable yang harus diisi di Vercel:
 | `NODE_ENV` | `production` |
 | `APP_URL` | URL produksi, dipakai pada contoh di halaman dokumentasi |
 
----
+`PORT` tidak perlu diisi di Vercel — variabel itu hanya dipakai
+`scripts/dev.js` untuk server lokal; `api/index.js` mengekspor aplikasi
+Express tanpa memanggil `app.listen()` sendiri.
+
+Skema dan data awal (`npm run migrate`) hanya perlu dijalankan **sekali**,
+saat basis data produksi masih kosong. Menjalankannya lagi setelah basis data
+berisi data sungguhan berbahaya: `db/schema.sql` diawali `DROP TABLE`, sehingga
+migrasi ulang menghapus seluruh isi tabel sebelum membangunnya kembali dari
+`db/seed.sql`. Jalankan ulang hanya bila `db/schema.sql` berubah dan perubahan
+itu memang perlu diterapkan ke produksi.
+
 
 ## 7. Hasil
 
@@ -585,7 +598,7 @@ kabupaten, dengan total panjang jalur 234,6 km.
 
 ### 7.4 Antarmuka yang dihasilkan
 
-Selain REST API, sistem menghasilkan dua antarmuka yang keduanya dirender di
+Selain REST API, sistem menghasilkan tiga antarmuka yang semuanya dirender di
 sisi server dari sumber data yang sama dengan API-nya.
 
 **Halaman dokumentasi `/docs`.** Terbuka untuk umum dan berdiri sendiri: peta
@@ -599,22 +612,32 @@ diperiksa bila ia tidak bisa menimbulkan efek samping. Angka kuota pada halaman
 itu dibaca dari tabel `plans`, bukan ditulis tetap, sehingga tidak bisa menyimpang
 dari kuota yang sesungguhnya ditegakkan.
 
+**Panel contoh isi data pada beranda.** Keenam lin dirender sekaligus dan satu
+di antaranya terlihat; memilih baris pada daftar "Lin yang tersedia" mengganti
+diagram jalur di panel atas, lalu halaman menggulir kembali ke panel itu.
+Gulirnya menghormati `prefers-reduced-motion`, sehingga pengunjung yang meminta
+gerak dikurangi berpindah tanpa animasi. Panel ini terbuka tanpa mendaftar, jadi
+calon pemakai dapat menilai isi datanya lebih dahulu sebelum memutuskan membuat
+akun — dan bila JavaScript mati, lin pertama tetap tampil sehingga halaman tidak
+kehilangan isinya.
+
 **Penjelajah lin pada dashboard.** Enam chip berwarna sesuai identitas tiap lin;
 memilih satu menampilkan ringkasannya, diagram urutan stasiun, dan blok JSON.
 Tujuannya adalah verifikasi: JSON yang ditampilkan dicetak dari objek `listLines()`
 yang persis sama dengan yang dibalas `GET /v1/lines`, sehingga hasil di Postman
 dapat dicocokkan baris per baris dengan tampilan di dashboard, bukan dikira-kira.
 
-Bagian kedua ini juga menunjukkan satu konsekuensi rancangan yang tidak langsung
-terlihat. Setelah endpoint data menuntut API key, halaman dashboard **tidak bisa**
-memanggil `/v1/lines` dari peramban: nilai utuh API key hanya ditampilkan sekali
-saat dibuat dan sesudahnya basis data hanya memegang hash-nya, sehingga peramban
-tidak punya apa pun untuk dikirim pada header `X-API-Key`. Karena itu datanya
-dirender bersama halaman, dan pergantian lin tidak memerlukan permintaan jaringan
-sama sekali. Aturan keamanan yang dipilih di satu tempat ternyata menentukan cara
-antarmuka di tempat lain harus dibangun.
+Kedua penjelajah lin itu menunjukkan satu konsekuensi rancangan yang tidak
+langsung terlihat. Setelah endpoint data menuntut API key, halaman beranda maupun
+dashboard **tidak bisa** memanggil `/v1/lines` dari peramban: nilai utuh API key
+hanya ditampilkan sekali saat dibuat dan sesudahnya basis data hanya memegang
+hash-nya, sehingga peramban tidak punya apa pun untuk dikirim pada header
+`X-API-Key`. Pada beranda alasannya bahkan lebih mendasar — pengunjungnya belum
+tentu punya akun sama sekali. Karena itu datanya dirender bersama halaman, dan
+pergantian lin tidak memerlukan permintaan jaringan sama sekali. Aturan keamanan
+yang dipilih di satu tempat ternyata menentukan cara antarmuka di tempat lain
+harus dibangun.
 
----
 
 ## 8. Penutup
 
@@ -650,7 +673,6 @@ karena ia bekerja pada graf, bukan pada asumsi tentang KRL. Penerapan pembatasan
 per menit dan pembayaran paket Pro adalah langkah berikutnya yang paling
 langsung.
 
----
 
 ## Lampiran A — Daftar endpoint
 

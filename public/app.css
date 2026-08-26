@@ -476,6 +476,45 @@ p + p { margin-top: 12px; }
 .linebox { margin-top: 26px; }
 .linebox[hidden] { display: none; }
 
+/* Baris lin di beranda: seluruh barisnya tombol, penanda aktifnya sama dengan
+   penanda bagian aktif pada daftar isi halaman dokumentasi. */
+/* Margin negatif meniadakan padding baris, jadi chip tetap lurus dengan judul
+   panel sementara latar sorotnya melebar sedikit ke luar kolom teks. */
+.linerows {
+  display: grid;
+  gap: 2px;
+  margin: 14px -12px 0;
+}
+
+.linerow {
+  display: grid;
+  grid-template-columns: 44px 170px auto;  /* kode · nama · angka */
+  justify-items: start;                    /* isi tiap kolom rata kiri */
+  align-items: center;                     /* chip sejajar tengah, bukan garis dasar */
+  gap: 14px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.linerow:hover { background: var(--surface-sunk); }
+
+/* Penanda baris aktif memakai inset shadow, bukan border: border akan menggeser
+   isi baris dan membuatnya tidak sejajar dengan baris lain. */
+.linerow.is-active {
+  background: var(--surface-sunk);
+  box-shadow: inset 2px 0 0 var(--signal);
+}
+
+.hero-lin[hidden] { display: none; }
+
 .chip--active { background: #e2f2e9; border-color: #b3ddc6; color: var(--ok); }
 .chip--revoked { background: #f6e4e3; border-color: #e2bcb9; color: var(--stop); }
 
@@ -685,6 +724,9 @@ code.inline {
 }
 
 @media (max-width: 620px) {
+  .linerow { grid-template-columns: 44px minmax(0, 1fr); gap: 6px 14px; }
+  .linerow > :last-child { grid-column: 2; }
+
   .page { padding: 28px 16px 56px; }
   .signage__inner { padding: 12px 16px; gap: 14px; }
   .signage__nav { gap: 14px; }

@@ -50,19 +50,27 @@ Aturan mainnya:
 Penjelasan lengkapnya, termasuk tiap endpoint sama contoh balasannya, ada di
 halaman `/docs` pas aplikasinya jalan.
 
-## Ngintip isi datanya dari dashboard
+## Ngintip isi datanya
 
-Di bawah dashboard ada penjelajah lin: enam chip warna-warni, klik satu, keluar
-ringkasan lin + diagram urutan stasiunnya + blok JSON-nya.
+Ada dua tempat buat lihat-lihat isi datanya tanpa nembak API sama sekali.
 
-JSON itu dicetak dari objek yang sama persis dengan yang dibalas `GET /v1/lines`,
-jadi kamu bisa nyocokin hasil Postman sama tampilan dashboard baris per baris —
-nggak usah main tebak-tebakan angka.
+**Di beranda.** Panel "Contoh isi data" di atas nampilin diagram jalur satu lin
+lengkap sama urutan stasiunnya. Mau ganti lin? Klik aja salah satu baris di panel
+"Lin yang tersedia" di bawah — diagramnya ganti, terus halamannya balik gulir ke
+atas sendiri. Nggak perlu daftar, nggak perlu login. Jadi orang bisa nilai dulu
+datanya kayak apa sebelum mutusin bikin akun.
 
-Kenapa datanya dirender dari server dan bukan di-fetch? Soalnya dashboard nggak
+**Di dashboard.** Ada penjelajah lin: enam chip warna-warni, klik satu, keluar
+ringkasan lin + diagram urutan stasiunnya + blok JSON-nya. JSON itu dicetak dari
+objek yang sama persis dengan yang dibalas `GET /v1/lines`, jadi kamu bisa
+nyocokin hasil Postman sama tampilan dashboard baris per baris — nggak usah main
+tebak-tebakan angka.
+
+Kenapa datanya dirender dari server dan bukan di-fetch? Soalnya halamannya nggak
 punya API key buat dikirim. Nilai utuh key cuma muncul sekali pas dibuat, sisanya
-tinggal hash di basis data. Jadi ya, aturan keamanan di satu tempat maksa cara
-bikin UI di tempat lain.
+tinggal hash di basis data — dan di beranda malah lebih parah, pengunjungnya
+belum tentu punya akun. Jadi ya, aturan keamanan di satu tempat maksa cara bikin
+UI di tempat lain.
 
 ## Jalanin di laptop sendiri
 
@@ -111,14 +119,26 @@ PostgREST, baris-baris itu nggak ngefek apa-apa.
 ## Deploy ke Vercel
 
 1. Push repo ini ke GitHub.
-2. Import sebagai project baru di Vercel.
-3. Isi environment variable: `DATABASE_URL`, `JWT_SECRET`, `JWT_EXPIRES`,
-   `NODE_ENV=production`, `APP_URL`.
-4. Jalanin `npm run migrate` sekali dengan `DATABASE_URL` yang nunjuk ke Supabase.
+2. Import sebagai project baru di Vercel (butuh Login Connection ke GitHub di
+   akun Vercel-mu dulu, kalau belum pernah — Account Settings → Login
+   Connections).
+3. Isi environment variable di scope Production: `DATABASE_URL`, `JWT_SECRET`,
+   `JWT_EXPIRES`, `NODE_ENV=production`, `APP_URL`. `PORT` nggak usah diisi —
+   itu cuma dipakai server lokal, `api/index.js` di Vercel nggak manggil
+   `app.listen()`.
+4. **Kalau basis data Supabase-nya masih kosong**, jalanin `npm run migrate`
+   sekali dengan `DATABASE_URL` yang nunjuk ke situ. Kalau sudah pernah
+   dimigrasi (tabelnya sudah terisi), **jangan jalanin lagi** — `schema.sql`
+   diawali `DROP TABLE`, jadi menjalankannya ke basis data yang sudah punya
+   user asli bakal menghapus semua data itu. Cukup dijalankan lagi kalau
+   `db/schema.sql` berubah dan perlu diterapkan ulang.
 
-`vercel.json` udah ada `includeFiles: "src/views/**"`. Baris itu wajib —
-tanpa itu templat EJS nggak keikut ke bundel fungsi, dan dashboard bakal 500 di
-produksi padahal di laptop aman-aman aja. Sempat kejadian, makanya ditulis.
+`vercel.json` sekarang punya `includeFiles: "{src/views/**,public/**}"`. Dua
+baris itu wajib — tanpa `src/views/**`, templat EJS nggak keikut ke bundel
+fungsi dan dashboard bakal 500 di produksi padahal di laptop aman-aman aja.
+Tanpa `public/**`, hal yang sama kejadian ke `app.css`: filenya kebaca lewat
+`express.static(path.join(__dirname, '..', 'public'))` — pola dinamis yang
+nggak ikut ke-trace ke bundel kalau nggak disebut eksplisit di sini.
 
 ## Perintah
 

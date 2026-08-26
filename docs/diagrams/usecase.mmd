@@ -6,7 +6,7 @@ flowchart LR
     DEVELOPER(["👤 Developer<br/>pemilik akun"])
     KLIEN(["🖥️ Aplikasi Klien<br/>aktor sistem"])
 
-    UC19(["Menjelajah lin di dashboard<br/>tanpa API key"])
+    UC19(["Menjelajah lin<br/>di beranda & dashboard<br/>tanpa API key"])
 
     subgraph AKUN["Pengelolaan akun"]
         direction TB
@@ -55,6 +55,7 @@ flowchart LR
     DEVELOPER --> UC7
     DEVELOPER --> UC8
     DEVELOPER --> UC19
+    PENGUNJUNG --> UC19
 
     KLIEN --> UC9
     KLIEN --> UC10

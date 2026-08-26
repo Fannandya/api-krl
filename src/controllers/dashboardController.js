@@ -10,18 +10,20 @@ const {
 
 /** Beranda. Diagram jalur di bagian atas dibaca langsung dari basis data. */
 exports.home = async (req, res) => {
-  const [stats, lines, featuredLine] = await Promise.all([
-    getNetworkStats(),
-    listLines(),
-    getLineByCode('BOG'),
-  ]);
+  const [stats, lines] = await Promise.all([getNetworkStats(), listLines()]);
+
+  // Keenam lin ikut dikirim supaya pengunjung bisa mengganti lin yang tampil di
+  // panel contoh data tanpa memuat ulang halaman. Beranda terbuka untuk umum,
+  // jadi mengambilnya lewat /v1/lines dari peramban bukan pilihan: endpoint itu
+  // menuntut token dan API key.
+  const lineDetails = await Promise.all(lines.map((l) => getLineByCode(l.code)));
 
   res.render('home', {
     title: 'Beranda',
     user: req.user,
     stats,
     lines,
-    featuredLine,
+    lineDetails,
   });
 };
 

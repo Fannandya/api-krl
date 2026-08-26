@@ -54,6 +54,8 @@
         </li>
         <li><a href="#error">Kode error</a></li>
         <li><a href="#kode">Kode stasiun &amp; lin</a></li>
+        <li><a href="#cara-kerja">Cara kerja</a></li>
+        <li><a href="#faq">FAQ</a></li>
       </ol>
     </nav>
 
@@ -211,6 +213,12 @@ X-RateLimit-Reset: 2026-08-26T17:00:00.000Z   <b># kapan kuota pulih (UTC)</b></
         </table>
 
         <p class="small muted" style="margin-top:14px">
+          Yang benar-benar ditegakkan saat ini cuma kuota harian di atas. Kolom
+          "Batas per menit" masih bersifat informasi paket, belum ada pembatas
+          per menit yang aktif di server.
+        </p>
+
+        <p class="small muted" style="margin-top:14px">
           Kuota habis dijawab <code class="inline">429 quota_exceeded</code>, dan
           rincian balasannya menyebutkan kapan kuota pulih. Permintaan yang ditolak
           karena kuota tetap tercatat di riwayat pemakaian.
@@ -310,6 +318,37 @@ X-RateLimit-Reset: 2026-08-26T17:00:00.000Z   <b># kapan kuota pulih (UTC)</b></
             </div>
           <% }) %>
         </div>
+      </section>
+
+      <!-- 9 ------------------------------------------------------------- -->
+      <section class="panel docs__section" id="cara-kerja">
+        <h2>Cara kerja</h2>
+        <p class="muted small" style="margin-top:10px">
+          Ringkasan bagaimana bagian-bagian utama API ini bekerja di balik layar,
+          supaya perilakunya tidak mengejutkan.
+        </p>
+
+        <% howItWorks.forEach((item) => { %>
+          <div style="margin-top:18px">
+            <h3 style="margin:0 0 6px"><%= item.title %></h3>
+            <p class="small muted" style="margin:0"><%= item.body %></p>
+          </div>
+        <% }) %>
+      </section>
+
+      <!-- 10 ------------------------------------------------------------- -->
+      <section class="panel docs__section" id="faq">
+        <h2>FAQ</h2>
+        <p class="muted small" style="margin-top:10px">
+          Pertanyaan yang kemungkinan besar muncul saat mengintegrasikan API ini.
+        </p>
+
+        <% faq.forEach((item) => { %>
+          <div style="margin-top:18px">
+            <h3 style="margin:0 0 6px"><%= item.question %></h3>
+            <p class="small muted" style="margin:0"><%= item.answer %></p>
+          </div>
+        <% }) %>
       </section>
 
     </div>

@@ -513,7 +513,11 @@ function buildReference(url) {
       "created_at": "2026-08-25T12:30:58.891Z"
     }
     ... dipotong
-  ]
+  ],
+  "meta": {
+    "key": { "id": "07715102-...", "name": "Aplikasi Mobile", "prefix": "krl_live_ab12" },
+    "count": 50
+  }
 }`,
     },
     {
@@ -557,6 +561,7 @@ const ERROR_CODES = [
   { status: 401, code: 'unauthorized', what: 'Token JWT atau API key tidak ada, salah, kedaluwarsa, atau sudah dicabut.' },
   { status: 403, code: 'forbidden', what: 'Kredensialnya sah tetapi tidak berhak — misalnya API key milik akun lain, atau jumlah key sudah mentok.' },
   { status: 404, code: 'not_found', what: 'Kode stasiun, kode lin, atau API key tidak ditemukan.' },
+  { status: 409, code: 'conflict', what: 'Data yang mau dibuat sudah ada — misalnya mendaftar dengan e-mail yang sudah terdaftar.' },
   { status: 422, code: 'unprocessable_entity', what: 'Permintaan sah tetapi tidak bisa dipenuhi, misalnya dua stasiun yang tidak terhubung.' },
   { status: 429, code: 'quota_exceeded', what: 'Kuota harian paket sudah habis. Lihat header X-RateLimit-Reset untuk waktu pulihnya.' },
   { status: 500, code: 'internal_server_error', what: 'Kesalahan di sisi server. Rincian internalnya sengaja tidak dibocorkan.' },
@@ -575,4 +580,163 @@ const CONTOH_ERROR = `{
   }
 }`;
 
-module.exports = { AUTH, ACCESS_MAP, ERROR_CODES, CONTOH_ERROR, buildReference };
+const HOW_IT_WORKS = [
+  {
+    id: 'arsitektur',
+    title: 'Arsitektur singkat',
+    body: 'API ini adalah aplikasi Express yang berjalan sebagai satu Vercel Function ' +
+      '(lihat api/index.js), di depan basis data Postgres (Supabase). Setiap ' +
+      'permintaan dilayani oleh instance Express yang sama selama instance itu ' +
+      'masih "hangat"; Vercel menjalankannya dari nol lagi setelah idle (cold start).',
+  },
+  {
+    id: 'jadwal',
+    title: 'Kenapa jam keberangkatan dibangkitkan, bukan disimpan',
+    body: 'Basis data tidak menyimpan puluhan ribu baris jam keberangkatan. Yang ' +
+      'disimpan di tabel service_patterns hanya pola operasi: rentang jam dan ' +
+      'headway (jarak antar keberangkatan) per lin, arah, dan jenis hari. ' +
+      'GET /v1/schedules membangkitkan daftar jam itu saat permintaan datang, ' +
+      'dengan rentang tertutup-terbuka [jam mulai, jam selesai) supaya jam akhir ' +
+      'satu pola tidak dobel dengan jam awal pola berikutnya.',
+  },
+  {
+    id: 'rute',
+    title: 'Bagaimana pencarian rute bekerja',
+    body: 'GET/POST /v1/route mencari rute dengan algoritma Dijkstra di atas graf ' +
+      'yang dibangun dari tabel line_stations. Setiap simpul graf adalah pasangan ' +
+      '(stasiun, lin) — bukan stasiun saja — supaya pindah lin di satu stasiun ' +
+      'tetap dihitung makan waktu (interchangeMinutes), bukan instan. Biaya yang ' +
+      'diminimalkan adalah waktu tempuh dalam menit, bukan jarak, jadi rute yang ' +
+      'jaraknya lebih jauh tetap bisa terpilih kalau lebih cepat.',
+  },
+  {
+    id: 'tarif',
+    title: 'Bagaimana tarif dihitung',
+    body: 'Tarif dihitung per jarak dari tabel fare_rules, dibulatkan ke atas per ' +
+      'kelipatan jarak — naik 0,1 km melewati batas kelipatan tetap kena tambahan ' +
+      'satu kelipatan penuh. Lin dengan tarif biasa (jaringan Commuter Line) yang ' +
+      'dilalui dalam satu perjalanan dijumlahkan jaraknya dulu baru dihitung ' +
+      'sekali, seperti satu kali tap-in/tap-out — pindah lin di jaringan yang ' +
+      'sama tidak menambah tarif dasar. Lin dengan aturan tarif sendiri (misalnya ' +
+      'KA Bandara) dihitung terpisah karena penumpang memang membeli tiket ' +
+      'terpisah untuknya.',
+  },
+  {
+    id: 'auth-ganda',
+    title: 'Kenapa endpoint data butuh JWT dan API key sekaligus',
+    body: 'JWT membuktikan siapa kamu (identitas akun, berumur pendek, kedaluwarsa ' +
+      'sendiri, tidak bisa dicabut manual). API key membuktikan paket langganan ' +
+      'mana yang berlaku dan mencatat pemakaian (berumur panjang, bisa dicabut ' +
+      'kapan saja). Keduanya harus cocok — API key wajib milik akun yang sedang ' +
+      'masuk — supaya API key yang bocor tidak bisa dipakai bersama sesi akun lain.',
+  },
+  {
+    id: 'kuota-wib',
+    title: 'Kenapa kuota reset tengah malam WIB, bukan tengah malam server',
+    body: 'Server Vercel dan Supabase berjalan di zona UTC. Tanpa penyesuaian, ' +
+      'kuota akan reset pukul 07:00 WIB — di tengah jam sibuk pagi. Sistem ini ' +
+      'menghitung "hari ini" berdasarkan tengah malam Asia/Jakarta (UTC+7 tetap ' +
+      'sepanjang tahun, tanpa waktu musim panas), jadi kuota selalu reset pukul ' +
+      '00:00 WIB.',
+  },
+];
+
+const FAQ = [
+  {
+    question: 'Kenapa request GET saya dengan body JSON malah dijawab 400?',
+    answer: 'GET /v1/schedules hanya membaca parameter dari query string di URL, ' +
+      'bukan dari body JSON — walaupun body-nya terkirim (misalnya lewat ' +
+      'Postman), controller tidak pernah membacanya. Ini sesuai konvensi REST: ' +
+      'GET semestinya tidak membawa body, dan banyak proxy/cache di dunia nyata ' +
+      'membuang body pada request GET. Kirim parameter lewat query string, ' +
+      'misalnya GET /v1/schedules?station=MRI&day=weekday — perhatikan juga ' +
+      'nama parameternya day, bukan day_type. (Pengecualian: GET /v1/route ' +
+      'memang menerima body JSON juga — lihat FAQ di bawah.)',
+  },
+  {
+    question: 'Kenapa saya dapat 401 padahal API key saya benar?',
+    answer: 'Endpoint /v1/* butuh JWT dan API key sekaligus. Kalau hanya salah ' +
+      'satu yang disertakan, responsnya tetap 401 — pesan errornya menyebut ' +
+      'secara spesifik kredensial mana yang hilang (misalnya menyebut header ' +
+      'X-API-Key), bukan pesan generik.',
+  },
+  {
+    question: 'Kenapa saya dapat 403 padahal API key saya masih aktif?',
+    answer: '403 forbidden berarti API key itu valid tapi bukan milik akun yang ' +
+      'sedang masuk lewat JWT kamu saat ini. Setiap API key dicocokkan ' +
+      'pemiliknya supaya key yang bocor tidak bisa dipakai bersama sesi akun ' +
+      'orang lain.',
+  },
+  {
+    question: 'Kenapa jam keberangkatan yang saya lihat bukan jadwal resmi KAI Commuter?',
+    answer: 'Jam keberangkatan di endpoint ini dibangkitkan dari pola headway ' +
+      'referensi akademik, bukan jadwal resmi KAI Commuter — datanya cocok ' +
+      'untuk estimasi, bukan kepastian keberangkatan kereta sungguhan.',
+  },
+  {
+    question: 'Kenapa tarif saya melonjak padahal jaraknya cuma nambah sedikit?',
+    answer: 'Tarif dibulatkan ke atas per kelipatan jarak. Kalau jarak melewati ' +
+      'batas kelipatan walau cuma 0,1 km, tarif tetap nambah satu kelipatan ' +
+      'penuh — misalnya 25,0 km kena tarif dasar, tapi 25,1 km sudah kena ' +
+      'tambahan satu kelipatan.',
+  },
+  {
+    question: 'Apakah pindah lin menambah tarif?',
+    answer: 'Tidak, selama masih di jaringan Commuter Line biasa — jarak semua ' +
+      'leg dijumlahkan dulu baru dihitung sekali tarifnya, seperti satu kali ' +
+      'tap-in/tap-out. Lin dengan tarif sendiri seperti KA Bandara dihitung ' +
+      'terpisah karena itu tiket yang berbeda.',
+  },
+  {
+    question: 'Kenapa saya dapat 422 saat mencari rute?',
+    answer: '422 unprocessable_entity berarti permintaannya sah (kode stasiun ' +
+      'keduanya valid) tapi tidak ada rute yang menghubungkan kedua stasiun itu ' +
+      'di jaringan ini. Beda dengan 404 (kode stasiunnya sendiri tidak ' +
+      'ditemukan) atau 400 (stasiun asal dan tujuan sama).',
+  },
+  {
+    question: 'Batas per menit di tabel paket kelihatannya tidak berlaku, kenapa?',
+    answer: 'Betul — saat ini hanya kuota harian yang benar-benar ditegakkan ' +
+      '(lihat header X-RateLimit-*). Angka batas per menit di tabel paket masih ' +
+      'bersifat informasi/rencana, belum ada pembatas per menit yang aktif.',
+  },
+  {
+    question: 'Kenapa saya harus login (JWT) dulu sebelum bisa membuat API key?',
+    answer: 'API key adalah properti akun — dibuat lewat POST /keys yang ' +
+      'mensyaratkan JWT, supaya jelas API key itu milik siapa dan dipakai ' +
+      'bersama kuota paket akun tersebut.',
+  },
+  {
+    question: 'Berapa banyak API key yang boleh saya buat?',
+    answer: 'Maksimal 10 API key aktif per akun. Kalau sudah mentok, POST /keys ' +
+      'akan dijawab 403 — cabut salah satu key yang tidak dipakai lewat ' +
+      'DELETE /keys/:id dulu.',
+  },
+  {
+    question: 'Apakah mencabut API key langsung berlaku?',
+    answer: 'Ya, seketika — permintaan berikutnya yang memakai key itu langsung ' +
+      'ditolak 401, walau JWT-nya masih berlaku. Riwayat pemakaian key yang ' +
+      'dicabut tetap tersimpan.',
+  },
+  {
+    question: 'Seberapa besar/lengkap data stasiun dan lin di API ini?',
+    answer: 'Datanya mencakup 74 stasiun, 6 lin, 82 titik pemberhentian, 6 ' +
+      'stasiun transit antar-lin, di 14 kota, dengan total panjang jaringan ' +
+      'sekitar 234,6 km — lihat detail lengkapnya di bagian Kode stasiun & lin.',
+  },
+  {
+    question: 'Kenapa pesan error saat login gagal tidak bilang persis mana yang salah?',
+    answer: 'Sengaja disamakan antara "email tidak ditemukan" dan "password ' +
+      'salah". Pesan yang berbeda akan membocorkan email mana saja yang ' +
+      'terdaftar di sistem.',
+  },
+  {
+    question: 'Apakah GET dan POST /v1/route sama-sama bisa dipakai?',
+    answer: 'Bisa, keduanya diarahkan ke handler yang sama. Pakai GET dengan ' +
+      'query string untuk pemanggilan sederhana, atau POST dengan body JSON ' +
+      'kalau parameternya banyak — berbeda dengan /v1/schedules, endpoint ini ' +
+      'memang didesain menerima keduanya.',
+  },
+];
+
+module.exports = { AUTH, ACCESS_MAP, ERROR_CODES, CONTOH_ERROR, HOW_IT_WORKS, FAQ, buildReference };

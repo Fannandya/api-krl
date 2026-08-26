@@ -38,8 +38,10 @@ coverage/
 
 # Konfigurasi & dokumen lokal
 AGENTS.md
+.mcp.json
 docs/*.pdf
 docs/diagrams/.mermaid-config.json
+docs/superpowers/
 
 # Keluaran alat bantu
 graphify-out/

@@ -5,7 +5,7 @@ const { listApiKeysForUser, listPlans } = require('../models/apiKeys');
 const { getDailyUsageForUser, getTopEndpointsForUser } = require('../models/logs');
 const { maskApiKey } = require('../services/apiKey');
 const {
-  AUTH, ACCESS_MAP, ERROR_CODES, CONTOH_ERROR, buildReference,
+  AUTH, ACCESS_MAP, ERROR_CODES, CONTOH_ERROR, HOW_IT_WORKS, FAQ, buildReference,
 } = require('../docs/apiReference');
 
 /** Beranda. Diagram jalur di bagian atas dibaca langsung dari basis data. */
@@ -101,6 +101,8 @@ exports.docs = async (req, res) => {
     authLabels: AUTH,
     errorCodes: ERROR_CODES,
     contohError: CONTOH_ERROR,
+    howItWorks: HOW_IT_WORKS,
+    faq: FAQ,
     plans,
     lines,
     interchanges: stations.filter((s) => s.is_interchange),

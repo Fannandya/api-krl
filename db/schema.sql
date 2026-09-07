@@ -1,8 +1,3 @@
--- ============================================================================
--- KRL Data API — skema basis data
--- Dijalankan dengan: npm run migrate
--- Skrip ini idempoten: DROP dulu supaya bisa dijalankan berulang selama pengembangan.
--- ============================================================================
 
 DROP TABLE IF EXISTS request_logs CASCADE;
 DROP TABLE IF EXISTS api_keys CASCADE;
@@ -14,9 +9,6 @@ DROP TABLE IF EXISTS lines CASCADE;
 DROP TABLE IF EXISTS stations CASCADE;
 DROP TABLE IF EXISTS fare_rules CASCADE;
 
--- ---------------------------------------------------------------------------
--- SISI SaaS: akun, paket langganan, API key, dan catatan pemakaian
--- ---------------------------------------------------------------------------
 
 -- Paket langganan. Menentukan berapa banyak request yang boleh dikirim per hari.
 CREATE TABLE plans (
@@ -66,9 +58,6 @@ CREATE TABLE request_logs (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- ---------------------------------------------------------------------------
--- SISI DOMAIN: jaringan KRL Commuter Line Jabodetabek
--- ---------------------------------------------------------------------------
 
 -- Stasiun. Satu stasiun bisa dilalui beberapa lin (mis. Manggarai, Tanah Abang).
 CREATE TABLE stations (
@@ -139,9 +128,6 @@ CREATE TABLE fare_rules (
   CHECK (effective_to IS NULL OR effective_to > effective_from)
 );
 
--- ---------------------------------------------------------------------------
--- INDEKS
--- ---------------------------------------------------------------------------
 
 -- Dipakai pada setiap request ber-API-key untuk menghitung kuota hari berjalan.
 CREATE INDEX idx_request_logs_key_time ON request_logs (api_key_id, created_at DESC);
@@ -152,22 +138,6 @@ CREATE INDEX idx_service_patterns_line ON service_patterns (line_id, day_type, d
 CREATE INDEX idx_stations_name         ON stations (lower(name));
 CREATE INDEX idx_fare_rules_line        ON fare_rules (line_id, effective_from DESC);
 
--- ---------------------------------------------------------------------------
--- ROW LEVEL SECURITY
---
--- Supabase menyajikan setiap tabel di skema public lewat PostgREST, dan anon
--- key-nya bersifat publik. Tanpa RLS, siapa pun yang memegang anon key bisa
--- membaca tabel users dan api_keys langsung dari internet, melewati seluruh
--- pemeriksaan yang dikerjakan aplikasi ini.
---
--- RLS dinyalakan tanpa satu pun policy, sehingga peran anon dan authenticated
--- tidak memperoleh akses apa pun. Aplikasi tetap berjalan normal karena ia
--- terhubung langsung ke Postgres sebagai pemilik tabel, dan pemilik tabel
--- melewati RLS. Dengan begitu satu-satunya pintu menuju data adalah endpoint
--- yang memang disediakan, lengkap dengan pemeriksaan API key dan kuotanya.
---
--- Pada Postgres lokal tanpa PostgREST, baris-baris ini tidak berpengaruh apa-apa.
--- ---------------------------------------------------------------------------
 
 ALTER TABLE users            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE plans            ENABLE ROW LEVEL SECURITY;

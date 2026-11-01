@@ -13,15 +13,14 @@ let pool = null;
 function getPool() {
   if (!pool) {
     const config = loadConfig();
-    // Supabase mewajibkan TLS; Postgres lokal untuk pengembangan biasanya tidak
-    // memakainya sama sekali, jadi SSL dimatikan khusus untuk host lokal.
-    const isLocal = /@(localhost|127\.0\.0\.1)[:/]/.test(config.databaseUrl);
+    const useSsl = process.env.DB_SSL === 'true';
+    const poolMax = Number(process.env.DB_POOL_MAX || 10);
     pool = new Pool({
       connectionString: config.databaseUrl,
-      max: 1,
+      max: poolMax,
       idleTimeoutMillis: 10000,
       connectionTimeoutMillis: 10000,
-      ssl: isLocal ? false : { rejectUnauthorized: false },
+      ssl: useSsl ? { rejectUnauthorized: false } : false,
     });
     pool.on('error', (err) => console.error('Postgres pool error:', err));
   }

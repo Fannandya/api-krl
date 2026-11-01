@@ -1,0 +1,58 @@
+name: Local In-LXC CI/CD Deployment
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build & In-Place Deploy on Target LXC 10024
+    runs-on: [self-hosted, linux, x64, krl]
+
+    env:
+      APP_DIR: /opt/krl
+      APP_PORT: 3000
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Sync Source Code to Production Directory
+        run: |
+          echo ">>> Mensinkronkan file repository ke direktori produksi $APP_DIR..."
+          rsync -av --delete \
+            --exclude='.env' \
+            --exclude='data/' \
+            --exclude='.git' \
+            --exclude='.github' \
+            ./ "$APP_DIR/"
+
+      - name: Build & Launch Docker Container In-Place
+        working-directory: /opt/krl
+        run: |
+          echo ">>> Menjalankan build Docker image lokal (tanpa GHCR)..."
+          docker compose build --pull
+          docker compose up -d --remove-orphans
+
+      - name: Application Health Check
+        run: |
+          echo ">>> Menunggu service stabil dan melakukan health check..."
+          sleep 5
+          curl -fsS --retry 5 --retry-delay 3 http://127.0.0.1:$APP_PORT/health || {
+            echo "❌ Health check gagal! Service tidak merespons di port $APP_PORT."
+            docker compose -f "$APP_DIR/docker-compose.yml" logs --tail=50
+            exit 1
+          }
+          echo "✅ Health check berhasil! Aplikasi berjalan normal di port $APP_PORT."
+
+      - name: Post-Deployment Storage Hygiene
+        if: always()
+        run: |
+          echo ">>> Membersihkan sisa build cache dan dangling images..."
+          docker image prune -f

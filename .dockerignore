@@ -1,0 +1,10 @@
+node_modules
+npm-debug.log
+.git
+.github
+.env*
+*.md
+docs
+tests
+.codex
+graphify-out
